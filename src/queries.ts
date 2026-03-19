@@ -31,8 +31,22 @@ const REPO_STATS_FIELDS = `
   commitComments {
     totalCount
   }
-  collaborators {
+  collaborators(first: $pageSize) {
     totalCount
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+    edges {
+      permissionSources {
+        permission
+        source {
+          ... on Team {
+            slug
+          }
+        }
+      }
+    }
   }
   createdAt
   defaultBranchRef {
@@ -246,6 +260,35 @@ export const REPO_PULL_REQUESTS_QUERY = `
             nodes {
               comments {
                 totalCount
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Deep pagination query for repository collaborators.
+ * Used to fetch additional collaborator pages beyond the first page
+ * returned by the main repo stats query. Retrieves permissionSources
+ * to identify GitHub teams with admin access.
+ */
+export const REPO_COLLABORATORS_QUERY = `
+  query repoCollaborators($owner: String!, $repo: String!, $pageSize: Int!, $cursor: String) {
+    repository(owner: $owner, name: $repo) {
+      collaborators(first: $pageSize, after: $cursor) {
+        pageInfo {
+          endCursor
+          hasNextPage
+        }
+        edges {
+          permissionSources {
+            permission
+            source {
+              ... on Team {
+                slug
               }
             }
           }

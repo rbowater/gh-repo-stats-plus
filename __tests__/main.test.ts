@@ -15,6 +15,7 @@ import {
   initializeCsvFile,
   writeResultToCsv,
   mapToRepoStatsResult,
+  extractAdminTeams,
 } from '../src/main.js';
 
 describe('initializeCsvFile', () => {
@@ -77,6 +78,7 @@ describe('initializeCsvFile', () => {
       'Merge_Commit_Allowed',
       'Squash_Merge_Allowed',
       'Rebase_Merge_Allowed',
+      'Admin_Teams',
       'Full_URL',
       'Migration_Issue',
       'Created',
@@ -87,7 +89,7 @@ describe('initializeCsvFile', () => {
     }
   });
 
-  it('should include all 47 columns in correct order', () => {
+  it('should include all 48 columns in correct order', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     const logger = createMockLogger();
 
@@ -97,7 +99,7 @@ describe('initializeCsvFile', () => {
     const headerLine = writtenContent.trim();
     const columns = headerLine.split(',');
 
-    expect(columns).toHaveLength(47);
+    expect(columns).toHaveLength(48);
 
     // Verify column order for new columns relative to neighbors
     const isTemplateIdx = columns.indexOf('isTemplate');
@@ -537,5 +539,89 @@ describe('mapToRepoStatsResult', () => {
     expect(result.Created).toBe('2024-01-01T00:00:00Z');
     expect(result.Last_Push).toBe('2024-06-01T12:00:00Z');
     expect(result.Last_Update).toBe('2024-06-15T08:00:00Z');
+  });
+
+  it('should include admin teams when provided', () => {
+    const repo = createMockRepositoryStats();
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+    const adminTeams = ['team-alpha', 'team-beta'];
+
+    const result = mapToRepoStatsResult(repo, issueStats, prStats, adminTeams);
+
+    expect(result.Admin_Teams).toBe('team-alpha;team-beta');
+  });
+
+  it('should default Admin_Teams to empty string when no teams provided', () => {
+    const repo = createMockRepositoryStats();
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(repo, issueStats, prStats);
+
+    expect(result.Admin_Teams).toBe('');
+  });
+});
+
+describe('extractAdminTeams', () => {
+  it('should extract unique admin team slugs from collaborator edges', () => {
+    const edges = [
+      {
+        permissionSources: [
+          { permission: 'ADMIN', source: { slug: 'platform-team' } },
+          { permission: 'WRITE', source: { slug: 'dev-team' } },
+        ],
+      },
+      {
+        permissionSources: [
+          { permission: 'ADMIN', source: { slug: 'platform-team' } },
+        ],
+      },
+      {
+        permissionSources: [
+          { permission: 'ADMIN', source: { slug: 'security-team' } },
+        ],
+      },
+    ];
+
+    const result = extractAdminTeams(edges);
+
+    expect(result).toEqual(new Set(['platform-team', 'security-team']));
+  });
+
+  it('should return empty set when no admin teams exist', () => {
+    const edges = [
+      {
+        permissionSources: [
+          { permission: 'WRITE', source: { slug: 'dev-team' } },
+          { permission: 'READ', source: {} },
+        ],
+      },
+    ];
+
+    const result = extractAdminTeams(edges);
+
+    expect(result).toEqual(new Set());
+  });
+
+  it('should ignore permission sources without a team slug', () => {
+    const edges = [
+      {
+        permissionSources: [
+          { permission: 'ADMIN', source: {} },
+          { permission: 'ADMIN', source: { slug: 'real-team' } },
+        ],
+      },
+    ];
+
+    const result = extractAdminTeams(edges);
+
+    expect(result).toEqual(new Set(['real-team']));
+  });
+
+  it('should return empty set for empty edges', () => {
+    const result = extractAdminTeams([]);
+
+    expect(result).toEqual(new Set());
   });
 });

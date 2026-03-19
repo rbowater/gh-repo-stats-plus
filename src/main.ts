@@ -2,6 +2,8 @@ import { OctokitClient } from './service.js';
 import { createOctokit } from './octokit.js';
 import {
   Arguments,
+  CollaboratorEdge,
+  CollaboratorsConnection,
   IssuesConnection,
   IssueStatsResult,
   Logger,
@@ -362,8 +364,8 @@ async function analyzeRepositoryStats({
 }): Promise<RepoStatsResult> {
   logger.info(`Analyzing repository: ${owner}/${repo.name}`);
 
-  // Run issue and PR analysis concurrently
-  const [issueStats, prStats] = await Promise.all([
+  // Run issue, PR, and collaborator analysis concurrently
+  const [issueStats, prStats, adminTeams] = await Promise.all([
     analyzeIssues({
       owner,
       repo: repo.name,
@@ -380,9 +382,17 @@ async function analyzeRepositoryStats({
       client,
       logger,
     }),
+    analyzeCollaborators({
+      owner,
+      repo: repo.name,
+      per_page: extraPageSize,
+      collaborators: repo.collaborators,
+      client,
+      logger,
+    }),
   ]);
 
-  return mapToRepoStatsResult(repo, issueStats, prStats);
+  return mapToRepoStatsResult(repo, issueStats, prStats, adminTeams);
 }
 
 async function* processRepoStats({
@@ -838,6 +848,7 @@ export async function writeResultToCsv(
       formattedResult.Merge_Commit_Allowed,
       formattedResult.Squash_Merge_Allowed,
       formattedResult.Rebase_Merge_Allowed,
+      formattedResult.Admin_Teams,
       formattedResult.Full_URL,
       formattedResult.Migration_Issue,
       formattedResult.Created,
@@ -862,6 +873,7 @@ export function mapToRepoStatsResult(
   repo: RepositoryStats,
   issueStats: IssueStatsResult,
   prStats: PullRequestStatsResult,
+  adminTeams: string[] = [],
 ): RepoStatsResult {
   const repoSizeMb = convertKbToMb(repo.diskUsage);
   const totalRecordCount = calculateRecordCount(repo, issueStats, prStats);
@@ -932,6 +944,7 @@ export function mapToRepoStatsResult(
     Merge_Commit_Allowed: repo.mergeCommitAllowed ?? false,
     Squash_Merge_Allowed: repo.squashMergeAllowed ?? false,
     Rebase_Merge_Allowed: repo.rebaseMergeAllowed ?? false,
+    Admin_Teams: adminTeams.join(';'),
     Full_URL: repo.url,
     Migration_Issue: hasMigrationIssues,
     Created: repo.createdAt,
@@ -1144,6 +1157,76 @@ async function analyzePullRequests({
     issueCommentCount,
     prReviewCount,
   };
+}
+
+export function extractAdminTeams(edges: CollaboratorEdge[]): Set<string> {
+  const adminTeams = new Set<string>();
+  for (const edge of edges) {
+    for (const source of edge.permissionSources) {
+      if (source.permission === 'ADMIN' && source.source.slug) {
+        adminTeams.add(source.source.slug);
+      }
+    }
+  }
+  return adminTeams;
+}
+
+async function analyzeCollaborators({
+  owner,
+  repo,
+  per_page,
+  collaborators,
+  client,
+  logger,
+}: {
+  owner: string;
+  repo: string;
+  per_page: number;
+  collaborators: CollaboratorsConnection;
+  client: OctokitClient;
+  logger: Logger;
+}): Promise<string[]> {
+  logger.debug(`Analyzing collaborators for repository: ${repo}`);
+
+  if (collaborators.totalCount <= 0) {
+    logger.debug(`No collaborators found for repository: ${repo}`);
+    return [];
+  }
+
+  const adminTeams = extractAdminTeams(collaborators.edges);
+
+  // Process additional pages if they exist
+  if (
+    collaborators.pageInfo.hasNextPage &&
+    collaborators.pageInfo.endCursor != null
+  ) {
+    logger.debug(`More pages of collaborators found for repository: ${repo}`);
+
+    try {
+      for await (const edge of client.getRepoCollaborators(
+        owner,
+        repo,
+        per_page,
+        collaborators.pageInfo.endCursor,
+      )) {
+        for (const source of edge.permissionSources) {
+          if (source.permission === 'ADMIN' && source.source.slug) {
+            adminTeams.add(source.source.slug);
+          }
+        }
+      }
+    } catch (error) {
+      logger.error(
+        `Error retrieving additional collaborators for ${owner}/${repo}. ` +
+          `Error: ${error}`,
+        error,
+      );
+    }
+  }
+
+  const result = [...adminTeams].sort();
+  logger.debug(`Found ${result.length} admin team(s) for repository: ${repo}`);
+  return result;
 }
 
 export async function checkForMissingRepos({

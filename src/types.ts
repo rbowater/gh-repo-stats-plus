@@ -177,6 +177,23 @@ export interface RepositoryTopicsConnection {
   nodes: RepositoryTopic[];
 }
 
+export interface PermissionSource {
+  permission: string;
+  source: {
+    slug?: string;
+  };
+}
+
+export interface CollaboratorEdge {
+  permissionSources: PermissionSource[];
+}
+
+export interface CollaboratorsConnection {
+  totalCount: number;
+  pageInfo: PageInfo;
+  edges: CollaboratorEdge[];
+}
+
 export interface RepositoryStats {
   pageInfo: PageInfo;
   autoMergeAllowed: boolean;
@@ -184,7 +201,7 @@ export interface RepositoryStats {
   branchProtectionRules: TotalCount;
   rulesets: TotalCount;
   commitComments: TotalCount;
-  collaborators: TotalCount;
+  collaborators: CollaboratorsConnection;
   createdAt: string;
   defaultBranchRef: { name: string } | null;
   deleteBranchOnMerge: boolean;
@@ -319,9 +336,22 @@ export interface RepoStatsResult {
   Merge_Commit_Allowed: boolean;
   Squash_Merge_Allowed: boolean;
   Rebase_Merge_Allowed: boolean;
+  Admin_Teams: string;
   Full_URL: string;
   Migration_Issue: boolean;
   Created: string;
+}
+
+export interface CollaboratorsResponse {
+  repository: {
+    collaborators: {
+      pageInfo: {
+        endCursor: string;
+        hasNextPage: boolean;
+      };
+      edges: CollaboratorEdge[];
+    };
+  };
 }
 
 export interface RateLimitCheck {

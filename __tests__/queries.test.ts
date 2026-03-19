@@ -4,6 +4,7 @@ import {
   SINGLE_REPO_STATS_QUERY,
   REPO_ISSUES_QUERY,
   REPO_PULL_REQUESTS_QUERY,
+  REPO_COLLABORATORS_QUERY,
 } from '../src/queries.js';
 
 describe('GraphQL Queries', () => {
@@ -258,6 +259,40 @@ describe('GraphQL Queries', () => {
       expect(REPO_PULL_REQUESTS_QUERY).toContain('number');
       expect(REPO_PULL_REQUESTS_QUERY).toContain('timeline');
       expect(REPO_PULL_REQUESTS_QUERY).toContain('comments');
+    });
+  });
+
+  describe('REPO_COLLABORATORS_QUERY', () => {
+    it('should be a non-empty string', () => {
+      expect(REPO_COLLABORATORS_QUERY).toBeDefined();
+      expect(typeof REPO_COLLABORATORS_QUERY).toBe('string');
+      expect(REPO_COLLABORATORS_QUERY.length).toBeGreaterThan(0);
+    });
+
+    it('should define the repoCollaborators query with correct variables', () => {
+      expect(REPO_COLLABORATORS_QUERY).toContain('query repoCollaborators');
+      expect(REPO_COLLABORATORS_QUERY).toContain('$owner: String!');
+      expect(REPO_COLLABORATORS_QUERY).toContain('$repo: String!');
+      expect(REPO_COLLABORATORS_QUERY).toContain('$pageSize: Int!');
+      expect(REPO_COLLABORATORS_QUERY).toContain('$cursor: String');
+    });
+
+    it('should query collaborators with permissionSources and team slug', () => {
+      expect(REPO_COLLABORATORS_QUERY).toContain(
+        'collaborators(first: $pageSize',
+      );
+      expect(REPO_COLLABORATORS_QUERY).toContain('permissionSources');
+      expect(REPO_COLLABORATORS_QUERY).toContain('permission');
+      expect(REPO_COLLABORATORS_QUERY).toContain('... on Team');
+      expect(REPO_COLLABORATORS_QUERY).toContain('slug');
+    });
+  });
+
+  describe('ORG_REPO_STATS_QUERY collaborators field', () => {
+    it('should include permissionSources with team fragment in inline collaborators', () => {
+      expect(ORG_REPO_STATS_QUERY).toContain('permissionSources');
+      expect(ORG_REPO_STATS_QUERY).toContain('... on Team');
+      expect(ORG_REPO_STATS_QUERY).toContain('slug');
     });
   });
 });

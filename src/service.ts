@@ -4,6 +4,8 @@ import {
   AppInstallation,
   AppInstallationData,
   AuthResponse,
+  CollaboratorEdge,
+  CollaboratorsResponse,
   IssuesResponse,
   IssueStats,
   OrgRepoNamesResponse,
@@ -24,6 +26,7 @@ import {
   SINGLE_REPO_STATS_QUERY,
   REPO_ISSUES_QUERY,
   REPO_PULL_REQUESTS_QUERY,
+  REPO_COLLABORATORS_QUERY,
   REPO_PROJECT_COUNTS_QUERY,
 } from './queries.js';
 
@@ -169,6 +172,31 @@ export class OctokitClient {
       const prs = response.repository.pullRequests.nodes;
       for (const pr of prs) {
         yield pr;
+      }
+    }
+  }
+
+  async *getRepoCollaborators(
+    owner: string,
+    repo: string,
+    per_page: number,
+    cursor: string | null = null,
+  ): AsyncGenerator<CollaboratorEdge, void, unknown> {
+    const iterator =
+      this.octokit.graphql.paginate.iterator<CollaboratorsResponse>(
+        REPO_COLLABORATORS_QUERY,
+        {
+          owner,
+          repo,
+          pageSize: per_page,
+          cursor,
+        },
+      );
+
+    for await (const response of iterator) {
+      const edges = response.repository.collaborators.edges;
+      for (const edge of edges) {
+        yield edge;
       }
     }
   }

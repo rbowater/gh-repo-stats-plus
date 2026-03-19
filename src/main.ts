@@ -27,7 +27,7 @@ import {
   writeFileSync,
 } from 'fs';
 
-import { withRetry, RetryConfig } from './retry.js';
+import { withRetry, RetryConfig, RetryResetSignal } from './retry.js';
 import {
   generateRepoStatsFileName,
   convertKbToMb,
@@ -92,9 +92,11 @@ async function processOrgRepoStats(context: OrgContext): Promise<void> {
   logger.info(`Started processing at: ${startTime.toISOString()}`);
 
   // Create a state object to track counts that can be modified by reference
+  const resetSignal: RetryResetSignal = { requested: false };
   const processingState = {
     successCount: 0,
     retryCount: 0,
+    resetSignal,
   };
 
   await withRetry(
@@ -171,6 +173,7 @@ async function processOrgRepoStats(context: OrgContext): Promise<void> {
       );
       stateManager.update(processedState, {});
     },
+    resetSignal,
   );
 }
 
@@ -229,9 +232,11 @@ async function processMissingRepositories({
   try {
     // Process the missing repos
     logger.info('Processing missing repositories...');
+    const missingReposResetSignal: RetryResetSignal = { requested: false };
     const missingReposProcessingState = {
       successCount: 0,
       retryCount: 0,
+      resetSignal: missingReposResetSignal,
     };
 
     await withRetry(
@@ -270,6 +275,7 @@ async function processMissingRepositories({
             `Error: ${state.error?.message}`,
         );
       },
+      missingReposResetSignal,
     );
 
     logger.info('Completed processing of missing repositories');
@@ -441,7 +447,7 @@ async function handleRepoProcessingSuccess({
 }: {
   result: RepoStatsResult;
   processedState: ProcessedPageState;
-  state: { successCount: number; retryCount: number };
+  state: { successCount: number; retryCount: number; resetSignal?: RetryResetSignal };
   opts: Arguments;
   client: OctokitClient;
   logger: Logger;
@@ -458,6 +464,9 @@ async function handleRepoProcessingSuccess({
     );
     state.retryCount = 0;
     state.successCount = 0;
+    if (state.resetSignal) {
+      state.resetSignal.requested = true;
+    }
   }
 
   stateManager.update(processedState, {
@@ -494,7 +503,7 @@ async function processRepositoriesFromFile({
   logger: Logger;
   opts: Arguments;
   processedState: ProcessedPageState;
-  state: { successCount: number; retryCount: number };
+  state: { successCount: number; retryCount: number; resetSignal?: RetryResetSignal };
   fileName: string;
   stateManager: StateManager;
 }): Promise<RepoProcessingResult> {
@@ -602,7 +611,7 @@ async function processRepositories({
   logger: Logger;
   opts: Arguments;
   processedState: ProcessedPageState;
-  state: { successCount: number; retryCount: number };
+  state: { successCount: number; retryCount: number; resetSignal?: RetryResetSignal };
   fileName: string;
   stateManager: StateManager;
 }): Promise<RepoProcessingResult> {

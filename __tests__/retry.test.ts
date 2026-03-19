@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { withRetry, type RetryConfig } from '../src/retry.js';
+import {
+  withRetry,
+  type RetryConfig,
+  type RetryResetSignal,
+} from '../src/retry.js';
 
 describe('retry', () => {
   let originalSetTimeout: typeof setTimeout;
@@ -221,6 +225,122 @@ describe('retry', () => {
       // Assert
       expect(result).toBe('success');
       expect(operation).toHaveBeenCalledTimes(2);
+    });
+
+    describe('resetSignal', () => {
+      it('should reset attempt counter when resetSignal is requested before a failure', async () => {
+        // Arrange - maxAttempts: 3 means it would normally fail after 3 attempts
+        const config: RetryConfig = {
+          ...defaultConfig,
+          maxAttempts: 3,
+        };
+        const resetSignal: RetryResetSignal = { requested: false };
+
+        // The operation will:
+        // Attempt 1: set resetSignal, then fail -> attempt resets to 0
+        // Attempt 1 (again): set resetSignal, then fail -> attempt resets to 0
+        // Attempt 1 (again): succeed
+        let callCount = 0;
+        const operation = vi.fn().mockImplementation(() => {
+          callCount++;
+          if (callCount <= 2) {
+            resetSignal.requested = true;
+            return Promise.reject(new Error(`Failure ${callCount}`));
+          }
+          return Promise.resolve('success');
+        });
+
+        // Act
+        const result = await withRetry(
+          operation,
+          config,
+          undefined,
+          resetSignal,
+        );
+
+        // Assert - succeeded despite more failures than maxAttempts
+        expect(result).toBe('success');
+        expect(operation).toHaveBeenCalledTimes(3);
+      });
+
+      it('should reset backoff delay when resetSignal is triggered', async () => {
+        const config: RetryConfig = {
+          ...defaultConfig,
+          maxAttempts: 5,
+          initialDelayMs: 100,
+          backoffFactor: 2,
+        };
+        const resetSignal: RetryResetSignal = { requested: false };
+
+        let callCount = 0;
+        const operation = vi.fn().mockImplementation(() => {
+          callCount++;
+          if (callCount === 2) {
+            // Signal reset before the second failure
+            resetSignal.requested = true;
+          }
+          if (callCount <= 3) {
+            return Promise.reject(new Error(`Failure ${callCount}`));
+          }
+          return Promise.resolve('success');
+        });
+
+        const result = await withRetry(
+          operation,
+          config,
+          undefined,
+          resetSignal,
+        );
+
+        expect(result).toBe('success');
+        // After reset, delay should restart from initialDelayMs
+        // Call 1 fails -> delay 100
+        // Call 2 fails + reset -> delay resets to 100 (not 200)
+        // Call 3 fails -> delay 100 (reset from initialDelayMs)
+        expect(global.setTimeout).toHaveBeenNthCalledWith(
+          1,
+          expect.any(Function),
+          100,
+        );
+        // After reset, delay restarts at initialDelayMs
+        expect(global.setTimeout).toHaveBeenNthCalledWith(
+          2,
+          expect.any(Function),
+          100,
+        );
+        expect(global.setTimeout).toHaveBeenNthCalledWith(
+          3,
+          expect.any(Function),
+          200,
+        );
+      });
+
+      it('should not reset attempts when resetSignal is not provided', async () => {
+        const operation = vi.fn().mockRejectedValue(new Error('Always fails'));
+
+        await expect(withRetry(operation, defaultConfig)).rejects.toThrow(
+          'Operation failed after 3 attempts',
+        );
+        expect(operation).toHaveBeenCalledTimes(3);
+      });
+
+      it('should clear resetSignal.requested at start of each attempt', async () => {
+        const resetSignal: RetryResetSignal = { requested: false };
+
+        let callCount = 0;
+        const operation = vi.fn().mockImplementation(() => {
+          callCount++;
+          // Verify signal is cleared at start of attempt
+          expect(resetSignal.requested).toBe(false);
+          if (callCount <= 1) {
+            return Promise.reject(new Error('Failure'));
+          }
+          return Promise.resolve('success');
+        });
+
+        await withRetry(operation, defaultConfig, undefined, resetSignal);
+        expect(operation).toHaveBeenCalledTimes(2);
+      });
     });
 
     describe('edge cases', () => {

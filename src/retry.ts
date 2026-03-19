@@ -14,29 +14,45 @@ export interface RetryState {
   error?: Error;
 }
 
+/**
+ * A signal object that the operation can use to request a reset of the
+ * internal attempt counter. When `requested` is set to `true` before the
+ * operation throws, `withRetry` will reset its attempt counter back to 0,
+ * giving the caller a fresh set of retries.
+ */
+export interface RetryResetSignal {
+  requested: boolean;
+}
+
 export async function withRetry<T>(
   operation: () => Promise<T>,
   config: RetryConfig,
   onRetry?: (state: RetryState) => void,
+  resetSignal?: RetryResetSignal,
 ): Promise<T> {
   let lastError: Error | undefined;
   let currentDelay = config.initialDelayMs;
-  let successCount = 0;
   let retryCount = 0;
 
   for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
     try {
-      const result = await operation();
-
-      successCount++;
-      if (successCount >= (config.successThreshold || 5)) {
-        successCount = 0;
-        retryCount = 0;
+      if (resetSignal) {
+        resetSignal.requested = false;
       }
 
+      const result = await operation();
       return result;
     } catch (error) {
-      successCount = 0;
+      // If the operation signalled a reset (enough consecutive successes
+      // occurred before this failure), restart the attempt counter so the
+      // caller gets a fresh set of retries.
+      if (resetSignal?.requested) {
+        attempt = 0; // becomes 1 after for-loop increment
+        currentDelay = config.initialDelayMs;
+        retryCount = 0;
+        resetSignal.requested = false;
+      }
+
       retryCount++;
 
       lastError =
@@ -54,7 +70,7 @@ export async function withRetry<T>(
         onRetry({
           attempt,
           error: lastError,
-          successCount,
+          successCount: 0,
           retryCount,
         });
       }

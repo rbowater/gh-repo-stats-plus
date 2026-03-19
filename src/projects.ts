@@ -11,7 +11,7 @@ import {
 import { StateManager } from './state.js';
 import { existsSync, readFileSync } from 'fs';
 
-import { withRetry } from './retry.js';
+import { withRetry, RetryResetSignal } from './retry.js';
 import {
   generateProjectStatsFileName,
   formatElapsedTime,
@@ -72,9 +72,11 @@ async function processOrgProjectStats(context: OrgContext): Promise<void> {
   const startTime = new Date();
   logger.info(`Started processing at: ${startTime.toISOString()}`);
 
+  const resetSignal: RetryResetSignal = { requested: false };
   const processingState = {
     successCount: 0,
     retryCount: 0,
+    resetSignal,
   };
 
   await withRetry(
@@ -129,6 +131,7 @@ async function processOrgProjectStats(context: OrgContext): Promise<void> {
       );
       stateManager.update(processedState, {});
     },
+    resetSignal,
   );
 }
 
@@ -147,7 +150,7 @@ async function processProjectStats({
   logger: Logger;
   opts: Arguments;
   processedState: ProcessedPageState;
-  state: { successCount: number; retryCount: number };
+  state: { successCount: number; retryCount: number; resetSignal?: RetryResetSignal };
   fileName: string;
   stateManager: StateManager;
 }): Promise<RepoProcessingResult> {
@@ -483,7 +486,7 @@ async function handleProjectStatsSuccess({
 }: {
   repoName: string;
   processedState: ProcessedPageState;
-  state: { successCount: number; retryCount: number };
+  state: { successCount: number; retryCount: number; resetSignal?: RetryResetSignal };
   opts: Arguments;
   logger: Logger;
   processedCount: number;
@@ -499,6 +502,9 @@ async function handleProjectStatsSuccess({
     );
     state.retryCount = 0;
     state.successCount = 0;
+    if (state.resetSignal) {
+      state.resetSignal.requested = true;
+    }
   }
 
   stateManager.update(processedState, {

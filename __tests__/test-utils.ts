@@ -72,8 +72,6 @@ export function createMockRepositoryStats(
     commitComments: { totalCount: 2 },
     collaborators: {
       totalCount: 5,
-      pageInfo: { endCursor: null, hasNextPage: false },
-      edges: [],
     },
     createdAt: '2024-01-01T00:00:00Z',
     defaultBranchRef: { name: 'main' },
@@ -90,8 +88,6 @@ export function createMockRepositoryStats(
     isTemplate: false,
     issues: {
       totalCount: 10,
-      pageInfo: { endCursor: null, hasNextPage: false },
-      nodes: [],
     },
     languages: {
       totalCount: 2,
@@ -110,8 +106,6 @@ export function createMockRepositoryStats(
     projectsV2: { totalCount: 0 },
     pullRequests: {
       totalCount: 5,
-      pageInfo: { endCursor: null, hasNextPage: false },
-      nodes: [],
     },
     pushedAt: '2024-06-01T12:00:00Z',
     rebaseMergeAllowed: true,

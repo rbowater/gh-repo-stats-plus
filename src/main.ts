@@ -3,11 +3,8 @@ import { createOctokit } from './octokit.js';
 import {
   Arguments,
   CollaboratorEdge,
-  CollaboratorsConnection,
-  IssuesConnection,
   IssueStatsResult,
   Logger,
-  PullRequestsConnection,
   PullRequestStatsResult,
   RepositoryStats,
   RepoStatsResult,
@@ -376,7 +373,7 @@ async function analyzeRepositoryStats({
       owner,
       repo: repo.name,
       per_page: extraPageSize,
-      issues: repo.issues,
+      totalCount: repo.issues.totalCount,
       client,
       logger,
     }),
@@ -384,7 +381,7 @@ async function analyzeRepositoryStats({
       owner,
       repo: repo.name,
       per_page: extraPageSize,
-      pullRequests: repo.pullRequests,
+      totalCount: repo.pullRequests.totalCount,
       client,
       logger,
     }),
@@ -392,7 +389,7 @@ async function analyzeRepositoryStats({
       owner,
       repo: repo.name,
       per_page: extraPageSize,
-      collaborators: repo.collaborators,
+      totalCount: repo.collaborators.totalCount,
       client,
       logger,
     }),
@@ -988,23 +985,23 @@ async function analyzeIssues({
   owner,
   repo,
   per_page,
-  issues,
+  totalCount,
   client,
   logger,
 }: {
   owner: string;
   repo: string;
   per_page: number;
-  issues: IssuesConnection;
+  totalCount: number;
   client: OctokitClient;
   logger: Logger;
 }): Promise<IssueStatsResult> {
   logger.debug(`Analyzing issues for repository: ${repo}`);
 
-  if (issues.totalCount <= 0) {
+  if (totalCount <= 0) {
     logger.debug(`No issues found for repository: ${repo}`);
     return {
-      totalIssuesCount: issues.totalCount,
+      totalIssuesCount: totalCount,
       issueEventCount: 0,
       issueCommentCount: 0,
     };
@@ -1013,51 +1010,32 @@ async function analyzeIssues({
   let totalEventCount = 0;
   let totalCommentCount = 0;
 
-  // Process first page
-  for (const issue of issues.nodes) {
-    const eventCount = issue.timeline.totalCount;
-    const commentCount = issue.comments.totalCount;
+  try {
+    for await (const issue of client.getRepoIssues(
+      owner,
+      repo,
+      per_page,
+      null,
+    )) {
+      const eventCount = issue.timeline.totalCount;
+      const commentCount = issue.comments.totalCount;
 
-    // Calculate non-comment events by subtracting comments from total timeline events
-    totalEventCount += eventCount - commentCount;
-    totalCommentCount += commentCount;
-  }
-
-  // Process additional pages if they exist
-  if (issues.pageInfo.hasNextPage && issues.pageInfo.endCursor != null) {
-    logger.debug(`More pages of issues found for repository: ${repo}`);
-
-    try {
-      // Get next page of issues using iterator
-      const nextPagesIterator = client.getRepoIssues(
-        owner,
-        repo,
-        per_page,
-        issues.pageInfo.endCursor,
-      );
-
-      // Process each issue from subsequent pages
-      for await (const issue of nextPagesIterator) {
-        const eventCount = issue.timeline.totalCount;
-        const commentCount = issue.comments.totalCount;
-
-        // Calculate non-comment events by subtracting comments from total timeline events
-        totalEventCount += eventCount - commentCount;
-        totalCommentCount += commentCount;
-      }
-    } catch (error) {
-      logger.error(
-        `Error retrieving additional issues for ${owner}/${repo}. ` +
-          `Consider reducing page size. Error: ${error}`,
-        error,
-      );
-      throw error;
+      // Calculate non-comment events by subtracting comments from total timeline events
+      totalEventCount += eventCount - commentCount;
+      totalCommentCount += commentCount;
     }
+  } catch (error) {
+    logger.error(
+      `Error retrieving issues for ${owner}/${repo}. ` +
+        `Consider reducing page size. Error: ${error}`,
+      error,
+    );
+    throw error;
   }
 
   logger.debug(`Gathered all issues from repository: ${repo}`);
   return {
-    totalIssuesCount: issues.totalCount,
+    totalIssuesCount: totalCount,
     issueEventCount: totalEventCount,
     issueCommentCount: totalCommentCount,
   };
@@ -1067,18 +1045,18 @@ async function analyzePullRequests({
   owner,
   repo,
   per_page,
-  pullRequests,
+  totalCount,
   client,
   logger,
 }: {
   owner: string;
   repo: string;
   per_page: number;
-  pullRequests: PullRequestsConnection;
+  totalCount: number;
   client: OctokitClient;
   logger: Logger;
 }): Promise<PullRequestStatsResult> {
-  if (pullRequests.totalCount <= 0) {
+  if (totalCount <= 0) {
     return {
       prReviewCommentCount: 0,
       commitCommentCount: 0,
@@ -1094,8 +1072,12 @@ async function analyzePullRequests({
   let prReviewCommentCount = 0;
   let commitCommentCount = 0;
 
-  // Process first page
-  for (const pr of pullRequests.nodes) {
+  for await (const pr of client.getRepoPullRequests(
+    owner,
+    repo,
+    per_page,
+    null,
+  )) {
     const eventCount = pr.timeline.totalCount;
     const commentCount = pr.comments.totalCount;
     const reviewCount = pr.reviews.totalCount;
@@ -1118,45 +1100,6 @@ async function analyzePullRequests({
     }
 
     commitCommentCount += commitCount;
-  }
-
-  // Process additional pages if they exist
-  if (
-    pullRequests.pageInfo.hasNextPage &&
-    pullRequests.pageInfo.endCursor != null
-  ) {
-    const cursor = pullRequests.pageInfo.endCursor;
-    logger.debug(
-      `Fetching additional pull requests for ${repo} starting from cursor ${cursor}`,
-    );
-
-    for await (const pr of client.getRepoPullRequests(
-      owner,
-      repo,
-      per_page,
-      cursor,
-    )) {
-      const eventCount = pr.timeline.totalCount;
-      const commentCount = pr.comments.totalCount;
-      const reviewCount = pr.reviews.totalCount;
-      const commitCount = pr.commits.totalCount;
-
-      const redundantEventCount =
-        commentCount + (commitCount > 250 ? 250 : commitCount);
-
-      const adjustedEventCount = Math.max(0, eventCount - redundantEventCount);
-
-      issueEventCount += adjustedEventCount;
-      issueCommentCount += commentCount;
-      prReviewCount += reviewCount;
-
-      // Process review comments for additional pages
-      for (const review of pr.reviews.nodes) {
-        prReviewCommentCount += review.comments.totalCount;
-      }
-
-      commitCommentCount += commitCount;
-    }
   }
 
   return {
@@ -1184,53 +1127,45 @@ async function analyzeCollaborators({
   owner,
   repo,
   per_page,
-  collaborators,
+  totalCount,
   client,
   logger,
 }: {
   owner: string;
   repo: string;
   per_page: number;
-  collaborators: CollaboratorsConnection;
+  totalCount: number;
   client: OctokitClient;
   logger: Logger;
 }): Promise<string[]> {
   logger.debug(`Analyzing collaborators for repository: ${repo}`);
 
-  if (collaborators.totalCount <= 0) {
+  if (totalCount <= 0) {
     logger.debug(`No collaborators found for repository: ${repo}`);
     return [];
   }
 
-  const adminTeams = extractAdminTeams(collaborators.edges);
+  const adminTeams = new Set<string>();
 
-  // Process additional pages if they exist
-  if (
-    collaborators.pageInfo.hasNextPage &&
-    collaborators.pageInfo.endCursor != null
-  ) {
-    logger.debug(`More pages of collaborators found for repository: ${repo}`);
-
-    try {
-      for await (const edge of client.getRepoCollaborators(
-        owner,
-        repo,
-        per_page,
-        collaborators.pageInfo.endCursor,
-      )) {
-        for (const source of edge.permissionSources) {
-          if (source.permission === 'ADMIN' && source.source.slug) {
-            adminTeams.add(source.source.slug);
-          }
+  try {
+    for await (const edge of client.getRepoCollaborators(
+      owner,
+      repo,
+      per_page,
+      null,
+    )) {
+      for (const source of edge.permissionSources) {
+        if (source.permission === 'ADMIN' && source.source.slug) {
+          adminTeams.add(source.source.slug);
         }
       }
-    } catch (error) {
-      logger.error(
-        `Error retrieving additional collaborators for ${owner}/${repo}. ` +
-          `Error: ${error}`,
-        error,
-      );
     }
+  } catch (error) {
+    logger.error(
+      `Error retrieving collaborators for ${owner}/${repo}. ` +
+        `Error: ${error}`,
+      error,
+    );
   }
 
   const result = [...adminTeams].sort();

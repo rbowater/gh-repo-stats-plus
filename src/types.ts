@@ -201,7 +201,7 @@ export interface RepositoryStats {
   branchProtectionRules: TotalCount;
   rulesets: TotalCount;
   commitComments: TotalCount;
-  collaborators: CollaboratorsConnection;
+  collaborators: TotalCount;
   createdAt: string;
   defaultBranchRef: { name: string } | null;
   deleteBranchOnMerge: boolean;
@@ -215,7 +215,7 @@ export interface RepositoryStats {
   isArchived: boolean;
   isFork: boolean;
   isTemplate: boolean;
-  issues: IssuesConnection;
+  issues: TotalCount;
   languages: LanguageInfo;
   licenseInfo: LicenseInfo | null;
   mergeCommitAllowed: boolean;
@@ -224,7 +224,7 @@ export interface RepositoryStats {
   owner: RepositoryOwner;
   primaryLanguage: { name: string } | null;
   projectsV2: TotalCount;
-  pullRequests: PullRequestsConnection;
+  pullRequests: TotalCount;
   pushedAt: string;
   rebaseMergeAllowed: boolean;
   releases: TotalCount;

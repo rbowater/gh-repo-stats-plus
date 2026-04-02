@@ -8,11 +8,10 @@
 
 /**
  * Common repository fields shared by both org-level and single-repo queries.
- * Includes a first page of issues and pull requests (with nested reviews)
- * so the caller can process the initial page inline and then deep-paginate
- * the remainder via getRepoIssues / getRepoPullRequests.
- *
- * Requires $pageSize variable to be defined in the enclosing query.
+ * Only fetches totalCount for issues, pull requests, and collaborators.
+ * Full node data for these connections is retrieved separately via
+ * deep-pagination queries (getRepoIssues / getRepoPullRequests /
+ * getRepoCollaborators).
  */
 const REPO_STATS_FIELDS = `
   autoMergeAllowed
@@ -31,22 +30,8 @@ const REPO_STATS_FIELDS = `
   commitComments {
     totalCount
   }
-  collaborators(first: $pageSize) {
+  collaborators {
     totalCount
-    pageInfo {
-      endCursor
-      hasNextPage
-    }
-    edges {
-      permissionSources {
-        permission
-        source {
-          ... on Team {
-            slug
-          }
-        }
-      }
-    }
   }
   createdAt
   defaultBranchRef {
@@ -65,20 +50,8 @@ const REPO_STATS_FIELDS = `
   isArchived
   isFork
   isTemplate
-  issues(first: $pageSize) {
+  issues {
     totalCount
-    pageInfo {
-      endCursor
-      hasNextPage
-    }
-    nodes {
-      timeline {
-        totalCount
-      }
-      comments {
-        totalCount
-      }
-    }
   }
   # Returns the top 10 languages by size; repos with more than 10
   # will only show the largest ones, with percentages recalculated accordingly.
@@ -111,36 +84,8 @@ const REPO_STATS_FIELDS = `
   projectsV2 {
     totalCount
   }
-  pullRequests(first: $pageSize) {
+  pullRequests {
     totalCount
-    pageInfo {
-      endCursor
-      hasNextPage
-    }
-    nodes {
-      comments {
-        totalCount
-      }
-      commits {
-        totalCount
-      }
-      number
-      reviews(first: $pageSize) {
-        totalCount
-        pageInfo {
-          endCursor
-          hasNextPage
-        }
-        nodes {
-          comments {
-            totalCount
-          }
-        }
-      }
-      timeline {
-        totalCount
-      }
-    }
   }
   pushedAt
   rebaseMergeAllowed
@@ -198,7 +143,7 @@ export const ORG_REPO_STATS_QUERY = `
  * Query for fetching stats for a single repository by owner and name.
  */
 export const SINGLE_REPO_STATS_QUERY = `
-  query repoStats($owner: String!, $name: String!, $pageSize: Int!) {
+  query repoStats($owner: String!, $name: String!) {
     repository(owner: $owner, name: $name) {
       ${REPO_STATS_FIELDS}
     }

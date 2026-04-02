@@ -306,8 +306,6 @@ describe('OctokitClient', () => {
           branches: { totalCount: 5 },
           issues: {
             totalCount: 10,
-            nodes: [],
-            pageInfo: { hasNextPage: false, endCursor: null },
           },
           autoMergeAllowed: false,
           defaultBranchRef: { name: 'main' },
@@ -355,7 +353,6 @@ describe('OctokitClient', () => {
       expect(mockOctokit.graphql).toHaveBeenCalledWith(expect.any(String), {
         owner: 'testorg',
         name: 'testrepo',
-        pageSize: 10,
       });
     });
 

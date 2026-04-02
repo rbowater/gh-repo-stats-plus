@@ -118,7 +118,6 @@ describe('GraphQL Queries', () => {
       expect(SINGLE_REPO_STATS_QUERY).toContain('query repoStats');
       expect(SINGLE_REPO_STATS_QUERY).toContain('$owner: String!');
       expect(SINGLE_REPO_STATS_QUERY).toContain('$name: String!');
-      expect(SINGLE_REPO_STATS_QUERY).toContain('$pageSize: Int!');
     });
 
     it('should query repository by owner and name', () => {
@@ -289,10 +288,9 @@ describe('GraphQL Queries', () => {
   });
 
   describe('ORG_REPO_STATS_QUERY collaborators field', () => {
-    it('should include permissionSources with team fragment in inline collaborators', () => {
-      expect(ORG_REPO_STATS_QUERY).toContain('permissionSources');
-      expect(ORG_REPO_STATS_QUERY).toContain('... on Team');
-      expect(ORG_REPO_STATS_QUERY).toContain('slug');
+    it('should only include totalCount for collaborators (deep-paginated separately)', () => {
+      expect(ORG_REPO_STATS_QUERY).toContain('collaborators');
+      expect(ORG_REPO_STATS_QUERY).toContain('totalCount');
     });
   });
 });

@@ -114,7 +114,6 @@ export class OctokitClient {
       {
         owner,
         name: repo,
-        pageSize: per_page,
       },
     );
 

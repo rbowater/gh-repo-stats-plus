@@ -337,6 +337,8 @@ export interface RepoStatsResult {
   Squash_Merge_Allowed: boolean;
   Rebase_Merge_Allowed: boolean;
   Admin_Teams: string;
+  Admin_Team_Members: string;
+  Admin_Team_Members_SAML: string;
   Full_URL: string;
   Migration_Issue: boolean;
   Created: string;
@@ -352,6 +354,60 @@ export interface CollaboratorsResponse {
       edges: CollaboratorEdge[];
     };
   };
+}
+
+// --- Team Members types ---
+
+export interface TeamMembersResponse {
+  organization: {
+    team: {
+      members: {
+        pageInfo: PageInfo;
+        nodes: Array<{ login: string }>;
+      };
+    } | null;
+  };
+}
+
+// --- SAML Identity types ---
+
+export interface SamlExternalIdentityNode {
+  user: { login: string } | null;
+  samlIdentity: { nameId: string } | null;
+}
+
+export interface OrgSamlIdentitiesResponse {
+  organization: {
+    samlIdentityProvider: {
+      externalIdentities: {
+        pageInfo: PageInfo;
+        nodes: SamlExternalIdentityNode[];
+      };
+    } | null;
+  };
+}
+
+/**
+ * Org-level cache for admin team members and SAML identities.
+ * Shared across all repos within the same org to avoid redundant API calls.
+ */
+export interface AdminTeamCache {
+  /** team slug → sorted array of member logins */
+  teamMembers: Map<string, string[]>;
+  /** GitHub login → SAML nameId */
+  samlIdentities: Map<string, string>;
+  /** Whether SAML identities have been loaded (or attempted) for this org */
+  samlLoaded: boolean;
+}
+
+/**
+ * Admin team member details returned alongside admin team slugs.
+ */
+export interface AdminTeamMembersResult {
+  /** team-slug:login1,login2;team-slug2:login3 */
+  adminTeamMembers: string;
+  /** login1:samlId1;login2:samlId2 (only for members with SAML) */
+  adminTeamMembersSaml: string;
 }
 
 export interface RateLimitCheck {

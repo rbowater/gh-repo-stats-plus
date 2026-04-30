@@ -244,6 +244,56 @@ export const REPO_COLLABORATORS_QUERY = `
 `;
 
 /**
+ * Deep pagination query for team members within an organization.
+ * Used to resolve the members of admin teams identified via collaborator analysis.
+ */
+export const TEAM_MEMBERS_QUERY = `
+  query teamMembers($org: String!, $teamSlug: String!, $pageSize: Int!, $cursor: String) {
+    organization(login: $org) {
+      team(slug: $teamSlug) {
+        members(first: $pageSize, after: $cursor) {
+          pageInfo {
+            endCursor
+            hasNextPage
+          }
+          nodes {
+            login
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Deep pagination query for SAML/SSO external identities in an organization.
+ * Used to map GitHub logins to their SAML identity (nameId).
+ * Will return null for samlIdentityProvider if the org does not have SAML configured.
+ */
+export const ORG_SAML_IDENTITIES_QUERY = `
+  query orgSamlIdentities($org: String!, $pageSize: Int!, $cursor: String) {
+    organization(login: $org) {
+      samlIdentityProvider {
+        externalIdentities(first: $pageSize, after: $cursor) {
+          pageInfo {
+            endCursor
+            hasNextPage
+          }
+          nodes {
+            user {
+              login
+            }
+            samlIdentity {
+              nameId
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
  * Lightweight query for listing repository names in an organization via GraphQL.
  * Only fetches the repo name and owner login — no stats or extra fields.
  * Used by project-stats to avoid REST API rate limits when iterating org repos.

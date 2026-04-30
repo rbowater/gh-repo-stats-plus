@@ -16,6 +16,7 @@ import {
   writeResultToCsv,
   mapToRepoStatsResult,
   extractAdminTeams,
+  createAdminTeamCache,
 } from '../src/main.js';
 
 describe('initializeCsvFile', () => {
@@ -79,6 +80,8 @@ describe('initializeCsvFile', () => {
       'Squash_Merge_Allowed',
       'Rebase_Merge_Allowed',
       'Admin_Teams',
+      'Admin_Team_Members',
+      'Admin_Team_Members_SAML',
       'Full_URL',
       'Migration_Issue',
       'Created',
@@ -89,7 +92,7 @@ describe('initializeCsvFile', () => {
     }
   });
 
-  it('should include all 48 columns in correct order', () => {
+  it('should include all 50 columns in correct order', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     const logger = createMockLogger();
 
@@ -99,7 +102,7 @@ describe('initializeCsvFile', () => {
     const headerLine = writtenContent.trim();
     const columns = headerLine.split(',');
 
-    expect(columns).toHaveLength(48);
+    expect(columns).toHaveLength(50);
 
     // Verify column order for new columns relative to neighbors
     const isTemplateIdx = columns.indexOf('isTemplate');
@@ -623,5 +626,79 @@ describe('extractAdminTeams', () => {
     const result = extractAdminTeams([]);
 
     expect(result).toEqual(new Set());
+  });
+});
+
+describe('createAdminTeamCache', () => {
+  it('should create an empty cache', () => {
+    const cache = createAdminTeamCache();
+
+    expect(cache.teamMembers).toBeInstanceOf(Map);
+    expect(cache.teamMembers.size).toBe(0);
+    expect(cache.samlIdentities).toBeInstanceOf(Map);
+    expect(cache.samlIdentities.size).toBe(0);
+    expect(cache.samlLoaded).toBe(false);
+  });
+});
+
+describe('mapToRepoStatsResult with team members', () => {
+  it('should include admin team members when provided', () => {
+    const repo = createMockRepositoryStats();
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+    const adminTeams = ['team-alpha', 'team-beta'];
+    const teamMembersResult = {
+      adminTeamMembers: 'team-alpha:user1,user2;team-beta:user3',
+      adminTeamMembersSaml: 'user1:user1@corp.com;user3:user3@corp.com',
+    };
+
+    const result = mapToRepoStatsResult(
+      repo,
+      issueStats,
+      prStats,
+      adminTeams,
+      teamMembersResult,
+    );
+
+    expect(result.Admin_Teams).toBe('team-alpha;team-beta');
+    expect(result.Admin_Team_Members).toBe(
+      'team-alpha:user1,user2;team-beta:user3',
+    );
+    expect(result.Admin_Team_Members_SAML).toBe(
+      'user1:user1@corp.com;user3:user3@corp.com',
+    );
+  });
+
+  it('should default team members to empty strings when not provided', () => {
+    const repo = createMockRepositoryStats();
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(repo, issueStats, prStats);
+
+    expect(result.Admin_Team_Members).toBe('');
+    expect(result.Admin_Team_Members_SAML).toBe('');
+  });
+
+  it('should handle team members with no SAML identities', () => {
+    const repo = createMockRepositoryStats();
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+    const adminTeams = ['platform-team'];
+    const teamMembersResult = {
+      adminTeamMembers: 'platform-team:dev1,dev2',
+      adminTeamMembersSaml: '',
+    };
+
+    const result = mapToRepoStatsResult(
+      repo,
+      issueStats,
+      prStats,
+      adminTeams,
+      teamMembersResult,
+    );
+
+    expect(result.Admin_Team_Members).toBe('platform-team:dev1,dev2');
+    expect(result.Admin_Team_Members_SAML).toBe('');
   });
 });

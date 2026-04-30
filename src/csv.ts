@@ -50,6 +50,8 @@ export const REPO_STATS_COLUMNS = [
   'Squash_Merge_Allowed',
   'Rebase_Merge_Allowed',
   'Admin_Teams',
+  'Admin_Team_Members',
+  'Admin_Team_Members_SAML',
   'Full_URL',
   'Migration_Issue',
   'Created',

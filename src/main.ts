@@ -2,6 +2,8 @@ import { OctokitClient } from './service.js';
 import { createOctokit } from './octokit.js';
 import {
   Arguments,
+  AdminTeamCache,
+  AdminTeamMembersResult,
   CollaboratorEdge,
   IssueStatsResult,
   Logger,
@@ -246,6 +248,7 @@ async function processMissingRepositories({
           state: missingReposProcessingState,
           fileName,
           stateManager,
+          adminTeamCache: createAdminTeamCache(),
         });
 
         logger.info(
@@ -358,12 +361,14 @@ async function analyzeRepositoryStats({
   extraPageSize,
   client,
   logger,
+  adminTeamCache,
 }: {
   repo: RepositoryStats;
   owner: string;
   extraPageSize: number;
   client: OctokitClient;
   logger: Logger;
+  adminTeamCache: AdminTeamCache;
 }): Promise<RepoStatsResult> {
   logger.info(`Analyzing repository: ${owner}/${repo.name}`);
 
@@ -395,7 +400,23 @@ async function analyzeRepositoryStats({
     }),
   ]);
 
-  return mapToRepoStatsResult(repo, issueStats, prStats, adminTeams);
+  // Resolve team members and SAML identities from the org-level cache
+  const teamMembersResult = await resolveAdminTeamMembers({
+    org: owner,
+    adminTeams,
+    per_page: extraPageSize,
+    client,
+    logger,
+    cache: adminTeamCache,
+  });
+
+  return mapToRepoStatsResult(
+    repo,
+    issueStats,
+    prStats,
+    adminTeams,
+    teamMembersResult,
+  );
 }
 
 async function* processRepoStats({
@@ -405,6 +426,7 @@ async function* processRepoStats({
   extraPageSize,
   processedState,
   stateManager,
+  adminTeamCache,
 }: {
   reposIterator: AsyncGenerator<RepositoryStats, void, unknown>;
   client: OctokitClient;
@@ -412,6 +434,7 @@ async function* processRepoStats({
   extraPageSize: number;
   processedState: ProcessedPageState;
   stateManager: StateManager;
+  adminTeamCache: AdminTeamCache;
 }): AsyncGenerator<RepoStatsResult> {
   for await (const repo of reposIterator) {
     if (repo.pageInfo?.endCursor) {
@@ -426,6 +449,7 @@ async function* processRepoStats({
       extraPageSize,
       client,
       logger,
+      adminTeamCache,
     });
 
     yield result;
@@ -495,6 +519,7 @@ async function processRepositoriesFromFile({
   state,
   fileName,
   stateManager,
+  adminTeamCache,
 }: {
   client: OctokitClient;
   logger: Logger;
@@ -503,6 +528,7 @@ async function processRepositoriesFromFile({
   state: { successCount: number; retryCount: number; resetSignal?: RetryResetSignal };
   fileName: string;
   stateManager: StateManager;
+  adminTeamCache: AdminTeamCache;
 }): Promise<RepoProcessingResult> {
   logger.info(`Processing repositories from list: ${opts.repoList}`);
 
@@ -564,6 +590,7 @@ async function processRepositoriesFromFile({
           opts.extraPageSize != null ? Number(opts.extraPageSize) : 25,
         client,
         logger,
+        adminTeamCache,
       });
 
       await writeResultToCsv(result, fileName, logger);
@@ -616,6 +643,9 @@ async function processRepositories({
     `Starting/Resuming from cursor: ${processedState.currentCursor}`,
   );
 
+  // Org-level cache for admin team members and SAML identities
+  const adminTeamCache = createAdminTeamCache();
+
   // Batch mode: fetch repo names and process only the batch slice
   if (opts.batchSize != null) {
     const batchRepos = await getRepoListForBatch({
@@ -647,6 +677,7 @@ async function processRepositories({
       state,
       fileName,
       stateManager,
+      adminTeamCache,
     });
   }
 
@@ -659,6 +690,7 @@ async function processRepositories({
       state,
       fileName,
       stateManager,
+      adminTeamCache,
     });
   }
 
@@ -684,6 +716,7 @@ async function processRepositories({
         opts.extraPageSize != null ? Number(opts.extraPageSize) : 25,
       processedState,
       stateManager,
+      adminTeamCache,
     })) {
       try {
         if (processedState.processedRepos.includes(result.Repo_Name)) {
@@ -855,6 +888,8 @@ export async function writeResultToCsv(
       formattedResult.Squash_Merge_Allowed,
       formattedResult.Rebase_Merge_Allowed,
       formattedResult.Admin_Teams,
+      formattedResult.Admin_Team_Members,
+      formattedResult.Admin_Team_Members_SAML,
       formattedResult.Full_URL,
       formattedResult.Migration_Issue,
       formattedResult.Created,
@@ -880,6 +915,10 @@ export function mapToRepoStatsResult(
   issueStats: IssueStatsResult,
   prStats: PullRequestStatsResult,
   adminTeams: string[] = [],
+  teamMembersResult: AdminTeamMembersResult = {
+    adminTeamMembers: '',
+    adminTeamMembersSaml: '',
+  },
 ): RepoStatsResult {
   const repoSizeMb = convertKbToMb(repo.diskUsage);
   const totalRecordCount = calculateRecordCount(repo, issueStats, prStats);
@@ -951,6 +990,8 @@ export function mapToRepoStatsResult(
     Squash_Merge_Allowed: repo.squashMergeAllowed ?? false,
     Rebase_Merge_Allowed: repo.rebaseMergeAllowed ?? false,
     Admin_Teams: adminTeams.join(';'),
+    Admin_Team_Members: teamMembersResult.adminTeamMembers,
+    Admin_Team_Members_SAML: teamMembersResult.adminTeamMembersSaml,
     Full_URL: repo.url,
     Migration_Issue: hasMigrationIssues,
     Created: repo.createdAt,
@@ -1121,6 +1162,127 @@ export function extractAdminTeams(edges: CollaboratorEdge[]): Set<string> {
     }
   }
   return adminTeams;
+}
+
+export function createAdminTeamCache(): AdminTeamCache {
+  return {
+    teamMembers: new Map(),
+    samlIdentities: new Map(),
+    samlLoaded: false,
+  };
+}
+
+/**
+ * Resolves admin team members and their SAML identities, using the org-level
+ * cache to avoid redundant API calls across repos in the same org.
+ *
+ * For each admin team slug:
+ *  - If already cached, reuses the cached member list.
+ *  - Otherwise, fetches members via GraphQL and caches the result.
+ *
+ * SAML identities are loaded once per org (on first call) and cached.
+ * If the org has no SAML provider or the token lacks permission, SAML
+ * data is silently skipped.
+ */
+async function resolveAdminTeamMembers({
+  org,
+  adminTeams,
+  per_page,
+  client,
+  logger,
+  cache,
+}: {
+  org: string;
+  adminTeams: string[];
+  per_page: number;
+  client: OctokitClient;
+  logger: Logger;
+  cache: AdminTeamCache;
+}): Promise<AdminTeamMembersResult> {
+  if (adminTeams.length === 0) {
+    return { adminTeamMembers: '', adminTeamMembersSaml: '' };
+  }
+
+  // Ensure SAML identities are loaded (once per org)
+  if (!cache.samlLoaded) {
+    cache.samlLoaded = true;
+    try {
+      logger.debug(`Loading SAML identities for org: ${org}`);
+      for await (const identity of client.getOrgSamlIdentities(
+        org,
+        per_page,
+      )) {
+        if (identity.user?.login && identity.samlIdentity?.nameId) {
+          cache.samlIdentities.set(
+            identity.user.login,
+            identity.samlIdentity.nameId,
+          );
+        }
+      }
+      logger.debug(
+        `Loaded ${cache.samlIdentities.size} SAML identities for org: ${org}`,
+      );
+    } catch (error) {
+      logger.debug(
+        `Unable to load SAML identities for org ${org} ` +
+          `(org may not have SAML configured or token lacks permission): ${error}`,
+      );
+    }
+  }
+
+  // Resolve members for each admin team
+  for (const teamSlug of adminTeams) {
+    if (cache.teamMembers.has(teamSlug)) continue;
+
+    try {
+      logger.debug(`Fetching members for team: ${org}/${teamSlug}`);
+      const members: string[] = [];
+      for await (const login of client.getTeamMembers(
+        org,
+        teamSlug,
+        per_page,
+      )) {
+        members.push(login);
+      }
+      cache.teamMembers.set(teamSlug, members.sort());
+      logger.debug(
+        `Found ${members.length} member(s) for team: ${org}/${teamSlug}`,
+      );
+    } catch (error) {
+      logger.error(
+        `Error fetching members for team ${org}/${teamSlug}: ${error}`,
+      );
+      cache.teamMembers.set(teamSlug, []);
+    }
+  }
+
+  // Build the formatted output strings
+  // Admin_Team_Members: team-a:user1,user2;team-b:user3
+  const teamMemberParts: string[] = [];
+  const allMemberLogins = new Set<string>();
+  for (const teamSlug of adminTeams) {
+    const members = cache.teamMembers.get(teamSlug) ?? [];
+    for (const login of members) {
+      allMemberLogins.add(login);
+    }
+    if (members.length > 0) {
+      teamMemberParts.push(`${teamSlug}:${members.join(',')}`);
+    }
+  }
+
+  // Admin_Team_Members_SAML: user1:samlId1;user2:samlId2
+  const samlParts: string[] = [];
+  for (const login of [...allMemberLogins].sort()) {
+    const samlId = cache.samlIdentities.get(login);
+    if (samlId) {
+      samlParts.push(`${login}:${samlId}`);
+    }
+  }
+
+  return {
+    adminTeamMembers: teamMemberParts.join(';'),
+    adminTeamMembersSaml: samlParts.join(';'),
+  };
 }
 
 async function analyzeCollaborators({

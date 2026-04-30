@@ -9,6 +9,7 @@ import {
   IssuesResponse,
   IssueStats,
   OrgRepoNamesResponse,
+  OrgSamlIdentitiesResponse,
   ProjectInfo,
   ProjectStatsResult,
   ProjectV2Node,
@@ -19,6 +20,8 @@ import {
   RepoProjectCountsResponse,
   RepositoryStats,
   RepoStatsGraphQLResponse,
+  SamlExternalIdentityNode,
+  TeamMembersResponse,
 } from './types.js';
 import {
   ORG_REPO_STATS_QUERY,
@@ -28,6 +31,8 @@ import {
   REPO_PULL_REQUESTS_QUERY,
   REPO_COLLABORATORS_QUERY,
   REPO_PROJECT_COUNTS_QUERY,
+  TEAM_MEMBERS_QUERY,
+  ORG_SAML_IDENTITIES_QUERY,
 } from './queries.js';
 
 type Repository = components['schemas']['repository'];
@@ -196,6 +201,67 @@ export class OctokitClient {
       const edges = response.repository.collaborators.edges;
       for (const edge of edges) {
         yield edge;
+      }
+    }
+  }
+
+  /**
+   * Paginates through all members of a team within an organization.
+   * Yields individual member logins.
+   */
+  async *getTeamMembers(
+    org: string,
+    teamSlug: string,
+    per_page: number,
+    cursor: string | null = null,
+  ): AsyncGenerator<string, void, unknown> {
+    const iterator =
+      this.octokit.graphql.paginate.iterator<TeamMembersResponse>(
+        TEAM_MEMBERS_QUERY,
+        {
+          org,
+          teamSlug,
+          pageSize: per_page,
+          cursor,
+        },
+      );
+
+    for await (const response of iterator) {
+      const team = response.organization.team;
+      if (!team) break;
+      const members = team.members.nodes;
+      for (const member of members) {
+        yield member.login;
+      }
+    }
+  }
+
+  /**
+   * Paginates through all SAML/SSO external identities for an organization.
+   * Yields identity nodes containing the GitHub login and SAML nameId.
+   * Returns nothing if the organization has no SAML identity provider configured.
+   */
+  async *getOrgSamlIdentities(
+    org: string,
+    per_page: number,
+    cursor: string | null = null,
+  ): AsyncGenerator<SamlExternalIdentityNode, void, unknown> {
+    const iterator =
+      this.octokit.graphql.paginate.iterator<OrgSamlIdentitiesResponse>(
+        ORG_SAML_IDENTITIES_QUERY,
+        {
+          org,
+          pageSize: per_page,
+          cursor,
+        },
+      );
+
+    for await (const response of iterator) {
+      const provider = response.organization.samlIdentityProvider;
+      if (!provider) break;
+      const identities = provider.externalIdentities.nodes;
+      for (const identity of identities) {
+        yield identity;
       }
     }
   }

@@ -5,6 +5,8 @@ import {
   REPO_ISSUES_QUERY,
   REPO_PULL_REQUESTS_QUERY,
   REPO_COLLABORATORS_QUERY,
+  TEAM_MEMBERS_QUERY,
+  ORG_SAML_IDENTITIES_QUERY,
 } from '../src/queries.js';
 
 describe('GraphQL Queries', () => {
@@ -291,6 +293,58 @@ describe('GraphQL Queries', () => {
     it('should only include totalCount for collaborators (deep-paginated separately)', () => {
       expect(ORG_REPO_STATS_QUERY).toContain('collaborators');
       expect(ORG_REPO_STATS_QUERY).toContain('totalCount');
+    });
+  });
+
+  describe('TEAM_MEMBERS_QUERY', () => {
+    it('should be a non-empty string', () => {
+      expect(TEAM_MEMBERS_QUERY).toBeDefined();
+      expect(typeof TEAM_MEMBERS_QUERY).toBe('string');
+      expect(TEAM_MEMBERS_QUERY.length).toBeGreaterThan(0);
+    });
+
+    it('should define the teamMembers query with correct variables', () => {
+      expect(TEAM_MEMBERS_QUERY).toContain('query teamMembers');
+      expect(TEAM_MEMBERS_QUERY).toContain('$org: String!');
+      expect(TEAM_MEMBERS_QUERY).toContain('$teamSlug: String!');
+      expect(TEAM_MEMBERS_QUERY).toContain('$pageSize: Int!');
+      expect(TEAM_MEMBERS_QUERY).toContain('$cursor: String');
+    });
+
+    it('should query team members with pagination and login', () => {
+      expect(TEAM_MEMBERS_QUERY).toContain('organization(login: $org)');
+      expect(TEAM_MEMBERS_QUERY).toContain('team(slug: $teamSlug)');
+      expect(TEAM_MEMBERS_QUERY).toContain('members(first: $pageSize');
+      expect(TEAM_MEMBERS_QUERY).toContain('login');
+      expect(TEAM_MEMBERS_QUERY).toContain('pageInfo');
+      expect(TEAM_MEMBERS_QUERY).toContain('endCursor');
+      expect(TEAM_MEMBERS_QUERY).toContain('hasNextPage');
+    });
+  });
+
+  describe('ORG_SAML_IDENTITIES_QUERY', () => {
+    it('should be a non-empty string', () => {
+      expect(ORG_SAML_IDENTITIES_QUERY).toBeDefined();
+      expect(typeof ORG_SAML_IDENTITIES_QUERY).toBe('string');
+      expect(ORG_SAML_IDENTITIES_QUERY.length).toBeGreaterThan(0);
+    });
+
+    it('should define the orgSamlIdentities query with correct variables', () => {
+      expect(ORG_SAML_IDENTITIES_QUERY).toContain('query orgSamlIdentities');
+      expect(ORG_SAML_IDENTITIES_QUERY).toContain('$org: String!');
+      expect(ORG_SAML_IDENTITIES_QUERY).toContain('$pageSize: Int!');
+      expect(ORG_SAML_IDENTITIES_QUERY).toContain('$cursor: String');
+    });
+
+    it('should query SAML identity provider with external identities', () => {
+      expect(ORG_SAML_IDENTITIES_QUERY).toContain(
+        'organization(login: $org)',
+      );
+      expect(ORG_SAML_IDENTITIES_QUERY).toContain('samlIdentityProvider');
+      expect(ORG_SAML_IDENTITIES_QUERY).toContain('externalIdentities');
+      expect(ORG_SAML_IDENTITIES_QUERY).toContain('login');
+      expect(ORG_SAML_IDENTITIES_QUERY).toContain('samlIdentity');
+      expect(ORG_SAML_IDENTITIES_QUERY).toContain('nameId');
     });
   });
 });

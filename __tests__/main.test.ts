@@ -648,7 +648,7 @@ describe('mapToRepoStatsResult with team members', () => {
     const prStats = createMockPrStats();
     const adminTeams = ['team-alpha', 'team-beta'];
     const teamMembersResult = {
-      adminTeamMembers: 'team-alpha:user1,user2;team-beta:user3',
+      adminTeamMembers: 'team-alpha:user1|user2;team-beta:user3',
       adminTeamMembersSaml: 'user1:user1@corp.com;user3:user3@corp.com',
     };
 
@@ -662,7 +662,7 @@ describe('mapToRepoStatsResult with team members', () => {
 
     expect(result.Admin_Teams).toBe('team-alpha;team-beta');
     expect(result.Admin_Team_Members).toBe(
-      'team-alpha:user1,user2;team-beta:user3',
+      'team-alpha:user1|user2;team-beta:user3',
     );
     expect(result.Admin_Team_Members_SAML).toBe(
       'user1:user1@corp.com;user3:user3@corp.com',
@@ -686,7 +686,7 @@ describe('mapToRepoStatsResult with team members', () => {
     const prStats = createMockPrStats();
     const adminTeams = ['platform-team'];
     const teamMembersResult = {
-      adminTeamMembers: 'platform-team:dev1,dev2',
+      adminTeamMembers: 'platform-team:dev1|dev2',
       adminTeamMembersSaml: '',
     };
 
@@ -698,7 +698,7 @@ describe('mapToRepoStatsResult with team members', () => {
       teamMembersResult,
     );
 
-    expect(result.Admin_Team_Members).toBe('platform-team:dev1,dev2');
+    expect(result.Admin_Team_Members).toBe('platform-team:dev1|dev2');
     expect(result.Admin_Team_Members_SAML).toBe('');
   });
 });

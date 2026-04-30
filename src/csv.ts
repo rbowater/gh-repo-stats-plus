@@ -173,6 +173,7 @@ export function readCsvFile(filePath: string): Record<string, string>[] {
   return parse(fileContent, {
     columns: true,
     skip_empty_lines: true,
+    relax_quotes: true,
   }) as Record<string, string>[];
 }
 

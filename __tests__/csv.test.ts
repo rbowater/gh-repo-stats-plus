@@ -171,6 +171,7 @@ describe('csv', () => {
       expect(parse).toHaveBeenCalledWith(expect.any(String), {
         columns: true,
         skip_empty_lines: true,
+        relax_quotes: true,
       });
     });
 

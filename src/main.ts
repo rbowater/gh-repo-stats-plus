@@ -1257,7 +1257,8 @@ async function resolveAdminTeamMembers({
   }
 
   // Build the formatted output strings
-  // Admin_Team_Members: team-a:user1,user2;team-b:user3
+  // Admin_Team_Members: team-a:user1|user2;team-b:user3
+  // Uses | as the member delimiter to avoid conflicting with CSV commas
   const teamMemberParts: string[] = [];
   const allMemberLogins = new Set<string>();
   for (const teamSlug of adminTeams) {
@@ -1266,7 +1267,7 @@ async function resolveAdminTeamMembers({
       allMemberLogins.add(login);
     }
     if (members.length > 0) {
-      teamMemberParts.push(`${teamSlug}:${members.join(',')}`);
+      teamMemberParts.push(`${teamSlug}:${members.join('|')}`);
     }
   }
 

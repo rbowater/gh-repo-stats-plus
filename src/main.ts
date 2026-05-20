@@ -372,8 +372,8 @@ async function analyzeRepositoryStats({
 }): Promise<RepoStatsResult> {
   logger.info(`Analyzing repository: ${owner}/${repo.name}`);
 
-  // Run issue, PR, and collaborator analysis concurrently
-  const [issueStats, prStats, adminTeams] = await Promise.all([
+  // Run issue, PR, collaborator analysis, and top contributor fetch concurrently
+  const [issueStats, prStats, adminTeams, topContributor] = await Promise.all([
     analyzeIssues({
       owner,
       repo: repo.name,
@@ -398,6 +398,7 @@ async function analyzeRepositoryStats({
       client,
       logger,
     }),
+    client.getTopContributor(owner, repo.name),
   ]);
 
   // Resolve team members and SAML identities from the org-level cache
@@ -410,12 +411,22 @@ async function analyzeRepositoryStats({
     cache: adminTeamCache,
   });
 
+  // Ensure SAML identities are loaded for top contributor lookup
+  await ensureSamlLoaded({ org: owner, per_page: extraPageSize, client, logger, cache: adminTeamCache });
+
+  // Look up SAML identity for top contributor
+  const topContributorSaml = topContributor
+    ? adminTeamCache.samlIdentities.get(topContributor) ?? ''
+    : '';
+
   return mapToRepoStatsResult(
     repo,
     issueStats,
     prStats,
     adminTeams,
     teamMembersResult,
+    topContributor,
+    topContributorSaml,
   );
 }
 
@@ -919,6 +930,8 @@ export function mapToRepoStatsResult(
     adminTeamMembers: '',
     adminTeamMembersSaml: '',
   },
+  topContributor: string | null = null,
+  topContributorSaml: string = '',
 ): RepoStatsResult {
   const repoSizeMb = convertKbToMb(repo.diskUsage);
   const totalRecordCount = calculateRecordCount(repo, issueStats, prStats);
@@ -989,6 +1002,8 @@ export function mapToRepoStatsResult(
     Merge_Commit_Allowed: repo.mergeCommitAllowed ?? false,
     Squash_Merge_Allowed: repo.squashMergeAllowed ?? false,
     Rebase_Merge_Allowed: repo.rebaseMergeAllowed ?? false,
+    Top_Contributor: topContributor ?? '',
+    Top_Contributor_SAML: topContributorSaml,
     Admin_Teams: adminTeams.join(';'),
     Admin_Team_Members: teamMembersResult.adminTeamMembers,
     Admin_Team_Members_SAML: teamMembersResult.adminTeamMembersSaml,
@@ -1173,6 +1188,50 @@ export function createAdminTeamCache(): AdminTeamCache {
 }
 
 /**
+/**
+ * Ensures SAML identities are loaded into the org-level cache.
+ * Only fetches once per org; subsequent calls are no-ops.
+ * If the org has no SAML provider or the token lacks permission,
+ * SAML data is silently skipped.
+ */
+export async function ensureSamlLoaded({
+  org,
+  per_page,
+  client,
+  logger,
+  cache,
+}: {
+  org: string;
+  per_page: number;
+  client: OctokitClient;
+  logger: Logger;
+  cache: AdminTeamCache;
+}): Promise<void> {
+  if (cache.samlLoaded) return;
+
+  cache.samlLoaded = true;
+  try {
+    logger.debug(`Loading SAML identities for org: ${org}`);
+    for await (const identity of client.getOrgSamlIdentities(org, per_page)) {
+      if (identity.user?.login && identity.samlIdentity?.nameId) {
+        cache.samlIdentities.set(
+          identity.user.login,
+          identity.samlIdentity.nameId,
+        );
+      }
+    }
+    logger.debug(
+      `Loaded ${cache.samlIdentities.size} SAML identities for org: ${org}`,
+    );
+  } catch (error) {
+    logger.debug(
+      `Unable to load SAML identities for org ${org} ` +
+        `(org may not have SAML configured or token lacks permission): ${error}`,
+    );
+  }
+}
+
+/**
  * Resolves admin team members and their SAML identities, using the org-level
  * cache to avoid redundant API calls across repos in the same org.
  *
@@ -1204,31 +1263,7 @@ async function resolveAdminTeamMembers({
   }
 
   // Ensure SAML identities are loaded (once per org)
-  if (!cache.samlLoaded) {
-    cache.samlLoaded = true;
-    try {
-      logger.debug(`Loading SAML identities for org: ${org}`);
-      for await (const identity of client.getOrgSamlIdentities(
-        org,
-        per_page,
-      )) {
-        if (identity.user?.login && identity.samlIdentity?.nameId) {
-          cache.samlIdentities.set(
-            identity.user.login,
-            identity.samlIdentity.nameId,
-          );
-        }
-      }
-      logger.debug(
-        `Loaded ${cache.samlIdentities.size} SAML identities for org: ${org}`,
-      );
-    } catch (error) {
-      logger.debug(
-        `Unable to load SAML identities for org ${org} ` +
-          `(org may not have SAML configured or token lacks permission): ${error}`,
-      );
-    }
-  }
+  await ensureSamlLoaded({ org, per_page, client, logger, cache });
 
   // Resolve members for each admin team
   for (const teamSlug of adminTeams) {

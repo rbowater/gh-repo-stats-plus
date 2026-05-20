@@ -49,6 +49,8 @@ export const REPO_STATS_COLUMNS = [
   'Merge_Commit_Allowed',
   'Squash_Merge_Allowed',
   'Rebase_Merge_Allowed',
+  'Top_Contributor',
+  'Top_Contributor_SAML',
   'Admin_Teams',
   'Admin_Team_Members',
   'Admin_Team_Members_SAML',

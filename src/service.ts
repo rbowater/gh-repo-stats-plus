@@ -565,4 +565,35 @@ export class OctokitClient {
       repoApps,
     };
   }
+
+  // --- Top Contributor method (REST API) ---
+
+  /**
+   * Fetches the top contributor (by commit count) for a repository.
+   *
+   * Uses REST API: GET /repos/{owner}/{repo}/contributors with per_page=1
+   * to efficiently retrieve only the highest contributor.
+   *
+   * Returns the login of the top contributor, or null if no contributors
+   * are found (e.g. empty repos, or repos with only anonymous commits).
+   */
+  async getTopContributor(
+    owner: string,
+    repo: string,
+  ): Promise<string | null> {
+    try {
+      const response = await this.octokit.rest.repos.listContributors({
+        owner,
+        repo,
+        per_page: 1,
+        anon: 'false',
+        headers: this.octokit_headers,
+      });
+
+      const topContributor = response.data[0];
+      return topContributor?.login ?? null;
+    } catch {
+      return null;
+    }
+  }
 }

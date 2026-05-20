@@ -336,6 +336,8 @@ export interface RepoStatsResult {
   Merge_Commit_Allowed: boolean;
   Squash_Merge_Allowed: boolean;
   Rebase_Merge_Allowed: boolean;
+  Top_Contributor: string;
+  Top_Contributor_SAML: string;
   Admin_Teams: string;
   Admin_Team_Members: string;
   Admin_Team_Members_SAML: string;

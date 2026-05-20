@@ -22,6 +22,7 @@ describe('OctokitClient', () => {
       rest: {
         repos: {
           listForOrg: vi.fn(),
+          listContributors: vi.fn(),
         },
       },
       auth: vi.fn(),
@@ -653,6 +654,55 @@ describe('OctokitClient', () => {
           headers: { 'X-GitHub-Api-Version': '2026-03-10' },
         }),
       );
+    });
+  });
+
+  describe('getTopContributor', () => {
+    it('should return the login of the top contributor', async () => {
+      mockOctokit.rest.repos.listContributors.mockResolvedValue({
+        data: [{ login: 'top-user', contributions: 150 }],
+      });
+
+      const result = await client.getTopContributor('test-org', 'test-repo');
+
+      expect(result).toBe('top-user');
+      expect(mockOctokit.rest.repos.listContributors).toHaveBeenCalledWith({
+        owner: 'test-org',
+        repo: 'test-repo',
+        per_page: 1,
+        anon: 'false',
+        headers: { 'X-GitHub-Api-Version': '2022-11-28' },
+      });
+    });
+
+    it('should return null when no contributors are found', async () => {
+      mockOctokit.rest.repos.listContributors.mockResolvedValue({
+        data: [],
+      });
+
+      const result = await client.getTopContributor('test-org', 'test-repo');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when the contributor has no login', async () => {
+      mockOctokit.rest.repos.listContributors.mockResolvedValue({
+        data: [{ contributions: 50 }],
+      });
+
+      const result = await client.getTopContributor('test-org', 'test-repo');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null on API error', async () => {
+      mockOctokit.rest.repos.listContributors.mockRejectedValue(
+        new Error('404 Not Found'),
+      );
+
+      const result = await client.getTopContributor('test-org', 'test-repo');
+
+      expect(result).toBeNull();
     });
   });
 });

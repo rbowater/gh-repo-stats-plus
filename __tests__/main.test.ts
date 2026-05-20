@@ -92,7 +92,7 @@ describe('initializeCsvFile', () => {
     }
   });
 
-  it('should include all 50 columns in correct order', () => {
+  it('should include all 52 columns in correct order', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     const logger = createMockLogger();
 
@@ -102,7 +102,7 @@ describe('initializeCsvFile', () => {
     const headerLine = writtenContent.trim();
     const columns = headerLine.split(',');
 
-    expect(columns).toHaveLength(50);
+    expect(columns).toHaveLength(52);
 
     // Verify column order for new columns relative to neighbors
     const isTemplateIdx = columns.indexOf('isTemplate');
@@ -563,6 +563,55 @@ describe('mapToRepoStatsResult', () => {
     const result = mapToRepoStatsResult(repo, issueStats, prStats);
 
     expect(result.Admin_Teams).toBe('');
+  });
+
+  it('should include top contributor when provided', () => {
+    const repo = createMockRepositoryStats();
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(
+      repo,
+      issueStats,
+      prStats,
+      [],
+      { adminTeamMembers: '', adminTeamMembersSaml: '' },
+      'top-user',
+      'user@corp.com',
+    );
+
+    expect(result.Top_Contributor).toBe('top-user');
+    expect(result.Top_Contributor_SAML).toBe('user@corp.com');
+  });
+
+  it('should default top contributor fields to empty string when not provided', () => {
+    const repo = createMockRepositoryStats();
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(repo, issueStats, prStats);
+
+    expect(result.Top_Contributor).toBe('');
+    expect(result.Top_Contributor_SAML).toBe('');
+  });
+
+  it('should handle null top contributor with empty SAML', () => {
+    const repo = createMockRepositoryStats();
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(
+      repo,
+      issueStats,
+      prStats,
+      [],
+      { adminTeamMembers: '', adminTeamMembersSaml: '' },
+      null,
+      '',
+    );
+
+    expect(result.Top_Contributor).toBe('');
+    expect(result.Top_Contributor_SAML).toBe('');
   });
 });
 

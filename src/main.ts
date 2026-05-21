@@ -898,6 +898,8 @@ export async function writeResultToCsv(
       formattedResult.Merge_Commit_Allowed,
       formattedResult.Squash_Merge_Allowed,
       formattedResult.Rebase_Merge_Allowed,
+      formattedResult.Top_Contributor,
+      formattedResult.Top_Contributor_SAML,
       formattedResult.Admin_Teams,
       formattedResult.Admin_Team_Members,
       formattedResult.Admin_Team_Members_SAML,

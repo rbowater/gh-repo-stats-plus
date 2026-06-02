@@ -581,7 +581,13 @@ async function processRepositoriesFromFile({
 
   for (const { owner, repo } of repoList) {
     try {
-      if (processedState.processedRepos.includes(repo)) {
+      // Processed repos are stored lowercased (see mapToRepoStatsResult, which
+      // sets Repo_Name to repo.name.toLowerCase()). The repo-list/batch path
+      // carries the original-case name, so we must normalise here before the
+      // membership check. Without this, mixed-case repositories are never
+      // recognised as already processed and get re-analysed and re-appended on
+      // every retry pass (e.g. after a 500), producing many duplicate rows.
+      if (processedState.processedRepos.includes(repo.toLowerCase())) {
         logger.debug(`Skipping already processed repository: ${repo}`);
         continue;
       }

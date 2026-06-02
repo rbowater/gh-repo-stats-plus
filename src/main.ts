@@ -881,6 +881,7 @@ export async function writeResultToCsv(
     const values = [
       formattedResult.Org_Name,
       formattedResult.Repo_Name,
+      formattedResult.Repo_ID,
       formattedResult.Is_Empty,
       formattedResult.Last_Push,
       formattedResult.Last_Update,
@@ -986,6 +987,7 @@ export function mapToRepoStatsResult(
   return {
     Org_Name: repo.owner.login.toLowerCase(),
     Repo_Name: repo.name.toLowerCase(),
+    Repo_ID: repo.databaseId,
     Is_Empty: repo.isEmpty,
     Last_Push: repo.pushedAt,
     Last_Update: repo.updatedAt,

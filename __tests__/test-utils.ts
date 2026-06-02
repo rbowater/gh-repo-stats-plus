@@ -65,6 +65,7 @@ export function createMockRepositoryStats(
 ): RepositoryStats {
   return {
     pageInfo: { endCursor: 'cursor123', hasNextPage: false },
+    databaseId: 123456789,
     autoMergeAllowed: false,
     branches: { totalCount: 3 },
     branchProtectionRules: { totalCount: 1 },
@@ -139,6 +140,7 @@ export function createMockRepoStatsResult(
   return {
     Org_Name: 'testorg',
     Repo_Name: 'test-repo',
+    Repo_ID: 123456789,
     Is_Empty: false,
     Last_Push: '2024-06-01T12:00:00Z',
     Last_Update: '2024-06-15T08:00:00Z',

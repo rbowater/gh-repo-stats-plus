@@ -93,7 +93,7 @@ describe('initializeCsvFile', () => {
     }
   });
 
-  it('should include all 52 columns in correct order', () => {
+  it('should include all 53 columns in correct order', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     const logger = createMockLogger();
 
@@ -103,7 +103,7 @@ describe('initializeCsvFile', () => {
     const headerLine = writtenContent.trim();
     const columns = headerLine.split(',');
 
-    expect(columns).toHaveLength(52);
+    expect(columns).toHaveLength(53);
 
     // Verify column order for new columns relative to neighbors
     const isTemplateIdx = columns.indexOf('isTemplate');
@@ -178,8 +178,8 @@ describe('writeResultToCsv', () => {
     const writtenRow = vi.mocked(appendFileSync).mock.calls[0][1] as string;
     const values = writtenRow.trim().split(',');
 
-    // isTemplate should be TRUE (index 7 in column order)
-    expect(values[7]).toBe('TRUE');
+    // isTemplate should be TRUE (index 8 in column order)
+    expect(values[8]).toBe('TRUE');
   });
 
   it('should handle values containing commas by quoting them', async () => {

@@ -14,6 +14,7 @@
  * getRepoCollaborators).
  */
 const REPO_STATS_FIELDS = `
+  databaseId
   autoMergeAllowed
   branches: refs(refPrefix: "refs/heads/") {
     totalCount

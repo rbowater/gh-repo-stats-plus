@@ -7,6 +7,7 @@ import { Logger } from './types.js';
 export const REPO_STATS_COLUMNS = [
   'Org_Name',
   'Repo_Name',
+  'Repo_ID',
   'Is_Empty',
   'Last_Push',
   'Last_Update',

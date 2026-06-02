@@ -196,6 +196,7 @@ export interface CollaboratorsConnection {
 
 export interface RepositoryStats {
   pageInfo: PageInfo;
+  databaseId: number;
   autoMergeAllowed: boolean;
   branches: TotalCount;
   branchProtectionRules: TotalCount;
@@ -294,6 +295,7 @@ export interface PullRequestStatsResult {
 export interface RepoStatsResult {
   Org_Name: string;
   Repo_Name: string;
+  Repo_ID: number;
   Is_Empty: boolean;
   Last_Push: string;
   Last_Update: string;

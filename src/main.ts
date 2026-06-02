@@ -293,6 +293,25 @@ export function initializeCsvFile(fileName: string, logger: Logger): void {
 }
 
 /**
+ * Determines whether a repository has already been processed.
+ *
+ * Processed repo names are stored lowercased (mapToRepoStatsResult sets
+ * Repo_Name to repo.name.toLowerCase(), and that value is what gets recorded
+ * in processedState.processedRepos). Callers, however, may hold the original
+ * casing (e.g. the repo-list/batch path reads names straight from the input
+ * list). Normalising here keeps the membership check case-insensitive so that
+ * mixed-case repositories are correctly skipped on resume/retry instead of
+ * being re-processed and re-appended, which previously produced many duplicate
+ * rows.
+ */
+export function isRepoAlreadyProcessed(
+  processedRepos: string[],
+  repoName: string,
+): boolean {
+  return processedRepos.includes(repoName.toLowerCase());
+}
+
+/**
  * Fetches the full list of repository names for an organization using a
  * lightweight GraphQL query, then returns the slice for the requested batch.
  *
@@ -581,7 +600,13 @@ async function processRepositoriesFromFile({
 
   for (const { owner, repo } of repoList) {
     try {
-      if (processedState.processedRepos.includes(repo)) {
+      // Processed repos are stored lowercased (see mapToRepoStatsResult, which
+      // The repo-list/batch path carries the original-case name, so the
+      // membership check must be case-insensitive (see isRepoAlreadyProcessed).
+      // Without this, mixed-case repositories are never recognised as already
+      // processed and get re-analysed and re-appended on every retry pass
+      // (e.g. after a 500), producing many duplicate rows.
+      if (isRepoAlreadyProcessed(processedState.processedRepos, repo)) {
         logger.debug(`Skipping already processed repository: ${repo}`);
         continue;
       }
@@ -730,7 +755,7 @@ async function processRepositories({
       adminTeamCache,
     })) {
       try {
-        if (processedState.processedRepos.includes(result.Repo_Name)) {
+        if (isRepoAlreadyProcessed(processedState.processedRepos, result.Repo_Name)) {
           logger.debug(
             `Skipping already processed repository: ${result.Repo_Name}`,
           );

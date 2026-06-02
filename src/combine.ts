@@ -133,6 +133,41 @@ export function mergeTwo(
   return { headers: combinedHeaders, rows: combinedRows };
 }
 
+// --- Dedupe ---
+
+/**
+ * Removes duplicate rows that share the same composite key, keeping the LAST
+ * occurrence's values while preserving the first-seen position in the output.
+ *
+ * For the legitimate join use case (e.g. repo-stats joined with project-stats)
+ * keys are unique, so this is a no-op. For the concatenation use case
+ * (combining many per-org/per-batch files where the same repository can appear
+ * more than once after a retry/resume), this collapses the duplicates down to
+ * a single, most-recent row.
+ *
+ * @param rows - The rows to dedupe
+ * @param matchColumns - Column names forming the composite key
+ * @returns A new array with duplicates collapsed (keep-last, stable order)
+ */
+export function dedupeByKey(
+  rows: Record<string, string>[],
+  matchColumns: string[],
+): Record<string, string>[] {
+  const byKey = new Map<string, Record<string, string>>();
+  const order: string[] = [];
+
+  for (const row of rows) {
+    const key = buildKey(row, matchColumns);
+    if (!byKey.has(key)) {
+      order.push(key);
+    }
+    // Keep-last: overwrite so the most recent row's values win.
+    byKey.set(key, row);
+  }
+
+  return order.map((key) => byKey.get(key)!);
+}
+
 // --- N-file combine ---
 
 /**
@@ -168,6 +203,11 @@ export function combineFiles(
     const additionalRows = readCsvFile(filePaths[i]);
     result = mergeTwo(result.rows, additionalRows, matchColumns);
   }
+
+  // Collapse any duplicate rows sharing the same composite key (keep-last).
+  // This protects against duplicate repositories that can be re-appended by
+  // retry/resume passes in the upstream collection step.
+  result.rows = dedupeByKey(result.rows, matchColumns);
 
   return result;
 }

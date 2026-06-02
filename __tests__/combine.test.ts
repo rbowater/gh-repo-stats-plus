@@ -30,6 +30,7 @@ import {
   buildKey,
   mergeTwo,
   combineFiles,
+  dedupeByKey,
   runCombineStats,
   CombineStatsOptions,
 } from '../src/combine.js';
@@ -401,6 +402,50 @@ describe('combine', () => {
       const [filePath, content] = vi.mocked(writeFileSync).mock.calls[0];
       expect(String(filePath)).toContain('combined.csv');
       expect(String(content)).toContain('Org_Name,Repo_Name,Size,Projects');
+    });
+  });
+
+  describe('dedupeByKey', () => {
+    it('keeps the last occurrence of a duplicated key', () => {
+      const rows = [
+        { Org_Name: 'org', Repo_Name: 'repo', Size: '1' },
+        { Org_Name: 'org', Repo_Name: 'repo', Size: '2' },
+        { Org_Name: 'org', Repo_Name: 'repo', Size: '3' },
+      ];
+      const result = dedupeByKey(rows, ['Org_Name', 'Repo_Name']);
+      expect(result).toHaveLength(1);
+      expect(result[0].Size).toBe('3');
+    });
+
+    it('treats keys case-insensitively (mirrors buildKey)', () => {
+      const rows = [
+        { Org_Name: 'Org', Repo_Name: 'MyRepo', Size: '1' },
+        { Org_Name: 'org', Repo_Name: 'myrepo', Size: '9' },
+      ];
+      const result = dedupeByKey(rows, ['Org_Name', 'Repo_Name']);
+      expect(result).toHaveLength(1);
+      expect(result[0].Size).toBe('9');
+    });
+
+    it('preserves first-seen order of distinct keys', () => {
+      const rows = [
+        { Org_Name: 'org', Repo_Name: 'a', Size: '1' },
+        { Org_Name: 'org', Repo_Name: 'b', Size: '1' },
+        { Org_Name: 'org', Repo_Name: 'a', Size: '2' },
+        { Org_Name: 'org', Repo_Name: 'c', Size: '1' },
+      ];
+      const result = dedupeByKey(rows, ['Org_Name', 'Repo_Name']);
+      expect(result.map((r) => r.Repo_Name)).toEqual(['a', 'b', 'c']);
+      expect(result.find((r) => r.Repo_Name === 'a')?.Size).toBe('2');
+    });
+
+    it('is a no-op when all keys are unique', () => {
+      const rows = [
+        { Org_Name: 'org', Repo_Name: 'a', Size: '1' },
+        { Org_Name: 'org', Repo_Name: 'b', Size: '2' },
+      ];
+      const result = dedupeByKey(rows, ['Org_Name', 'Repo_Name']);
+      expect(result).toHaveLength(2);
     });
   });
 });

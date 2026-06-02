@@ -13,6 +13,7 @@ vi.mock('fs');
 import { existsSync, writeFileSync, appendFileSync } from 'fs';
 import {
   initializeCsvFile,
+  isRepoAlreadyProcessed,
   writeResultToCsv,
   mapToRepoStatsResult,
   extractAdminTeams,
@@ -749,5 +750,29 @@ describe('mapToRepoStatsResult with team members', () => {
 
     expect(result.Admin_Team_Members).toBe('platform-team:dev1|dev2');
     expect(result.Admin_Team_Members_SAML).toBe('');
+  });
+});
+
+describe('isRepoAlreadyProcessed', () => {
+  it('matches an exact lowercase name', () => {
+    expect(isRepoAlreadyProcessed(['my-repo'], 'my-repo')).toBe(true);
+  });
+
+  it('matches a mixed-case name against the lowercased processed list', () => {
+    // Processed names are stored lowercased (mapToRepoStatsResult lowercases
+    // Repo_Name). The batch path passes the original casing, so the check must
+    // be case-insensitive or mixed-case repos get re-processed on retry.
+    expect(isRepoAlreadyProcessed(['acresdeploy'], 'acresDeploy')).toBe(true);
+    expect(
+      isRepoAlreadyProcessed(
+        ['analytics-db-hesiperformancelogs'],
+        'analytics-db-HESIPerformanceLogs',
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false for a repo that has not been processed', () => {
+    expect(isRepoAlreadyProcessed(['other-repo'], 'my-repo')).toBe(false);
+    expect(isRepoAlreadyProcessed([], 'anything')).toBe(false);
   });
 });

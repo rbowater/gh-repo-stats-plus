@@ -186,6 +186,7 @@ export function createMockRepoStatsResult(
     Admin_Teams: '',
     Admin_Team_Members: '',
     Admin_Team_Members_SAML: '',
+    Non_Admin_Teams: '',
     Top_Contributor: '',
     Top_Contributor_SAML: '',
     Full_URL: 'https://github.com/TestOrg/test-repo',

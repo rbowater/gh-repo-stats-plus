@@ -392,33 +392,36 @@ async function analyzeRepositoryStats({
   logger.info(`Analyzing repository: ${owner}/${repo.name}`);
 
   // Run issue, PR, collaborator analysis, and top contributor fetch concurrently
-  const [issueStats, prStats, adminTeams, topContributor] = await Promise.all([
-    analyzeIssues({
-      owner,
-      repo: repo.name,
-      per_page: extraPageSize,
-      totalCount: repo.issues.totalCount,
-      client,
-      logger,
-    }),
-    analyzePullRequests({
-      owner,
-      repo: repo.name,
-      per_page: extraPageSize,
-      totalCount: repo.pullRequests.totalCount,
-      client,
-      logger,
-    }),
-    analyzeCollaborators({
-      owner,
-      repo: repo.name,
-      per_page: extraPageSize,
-      totalCount: repo.collaborators.totalCount,
-      client,
-      logger,
-    }),
-    client.getTopContributor(owner, repo.name),
-  ]);
+  const [issueStats, prStats, collaboratorTeams, topContributor] =
+    await Promise.all([
+      analyzeIssues({
+        owner,
+        repo: repo.name,
+        per_page: extraPageSize,
+        totalCount: repo.issues.totalCount,
+        client,
+        logger,
+      }),
+      analyzePullRequests({
+        owner,
+        repo: repo.name,
+        per_page: extraPageSize,
+        totalCount: repo.pullRequests.totalCount,
+        client,
+        logger,
+      }),
+      analyzeCollaborators({
+        owner,
+        repo: repo.name,
+        per_page: extraPageSize,
+        totalCount: repo.collaborators.totalCount,
+        client,
+        logger,
+      }),
+      client.getTopContributor(owner, repo.name),
+    ]);
+
+  const { adminTeams, nonAdminTeams } = collaboratorTeams;
 
   // Resolve team members and SAML identities from the org-level cache
   const teamMembersResult = await resolveAdminTeamMembers({
@@ -446,6 +449,7 @@ async function analyzeRepositoryStats({
     teamMembersResult,
     topContributor,
     topContributorSaml,
+    nonAdminTeams,
   );
 }
 
@@ -929,6 +933,7 @@ export async function writeResultToCsv(
       formattedResult.Admin_Teams,
       formattedResult.Admin_Team_Members,
       formattedResult.Admin_Team_Members_SAML,
+      formattedResult.Non_Admin_Teams,
       formattedResult.Full_URL,
       formattedResult.Migration_Issue,
       formattedResult.Created,
@@ -960,6 +965,7 @@ export function mapToRepoStatsResult(
   },
   topContributor: string | null = null,
   topContributorSaml: string = '',
+  nonAdminTeams: string[] = [],
 ): RepoStatsResult {
   const repoSizeMb = convertKbToMb(repo.diskUsage);
   const totalRecordCount = calculateRecordCount(repo, issueStats, prStats);
@@ -1036,6 +1042,7 @@ export function mapToRepoStatsResult(
     Admin_Teams: adminTeams.join(';'),
     Admin_Team_Members: teamMembersResult.adminTeamMembers,
     Admin_Team_Members_SAML: teamMembersResult.adminTeamMembersSaml,
+    Non_Admin_Teams: nonAdminTeams.join(';'),
     Full_URL: repo.url,
     Migration_Issue: hasMigrationIssues,
     Created: repo.createdAt,
@@ -1364,15 +1371,16 @@ async function analyzeCollaborators({
   totalCount: number;
   client: OctokitClient;
   logger: Logger;
-}): Promise<string[]> {
+}): Promise<{ adminTeams: string[]; nonAdminTeams: string[] }> {
   logger.debug(`Analyzing collaborators for repository: ${repo}`);
 
   if (totalCount <= 0) {
     logger.debug(`No collaborators found for repository: ${repo}`);
-    return [];
+    return { adminTeams: [], nonAdminTeams: [] };
   }
 
   const adminTeams = new Set<string>();
+  const nonAdminTeams = new Set<string>();
 
   try {
     for await (const edge of client.getRepoCollaborators(
@@ -1382,8 +1390,11 @@ async function analyzeCollaborators({
       null,
     )) {
       for (const source of edge.permissionSources) {
-        if (source.permission === 'ADMIN' && source.source.slug) {
+        if (!source.source.slug) continue;
+        if (source.permission === 'ADMIN') {
           adminTeams.add(source.source.slug);
+        } else {
+          nonAdminTeams.add(source.source.slug);
         }
       }
     }
@@ -1395,8 +1406,19 @@ async function analyzeCollaborators({
     );
   }
 
-  const result = [...adminTeams].sort();
-  logger.debug(`Found ${result.length} admin team(s) for repository: ${repo}`);
+  // A team that has admin access anywhere is treated as an admin team only
+  for (const slug of adminTeams) {
+    nonAdminTeams.delete(slug);
+  }
+
+  const result = {
+    adminTeams: [...adminTeams].sort(),
+    nonAdminTeams: [...nonAdminTeams].sort(),
+  };
+  logger.debug(
+    `Found ${result.adminTeams.length} admin team(s) and ` +
+      `${result.nonAdminTeams.length} non-admin team(s) for repository: ${repo}`,
+  );
   return result;
 }
 

@@ -55,6 +55,7 @@ export const REPO_STATS_COLUMNS = [
   'Admin_Teams',
   'Admin_Team_Members',
   'Admin_Team_Members_SAML',
+  'Non_Admin_Teams',
   'Full_URL',
   'Migration_Issue',
   'Created',

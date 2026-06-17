@@ -83,6 +83,7 @@ describe('initializeCsvFile', () => {
       'Admin_Teams',
       'Admin_Team_Members',
       'Admin_Team_Members_SAML',
+      'Non_Admin_Teams',
       'Full_URL',
       'Migration_Issue',
       'Created',
@@ -93,7 +94,7 @@ describe('initializeCsvFile', () => {
     }
   });
 
-  it('should include all 53 columns in correct order', () => {
+  it('should include all 54 columns in correct order', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     const logger = createMockLogger();
 
@@ -103,7 +104,7 @@ describe('initializeCsvFile', () => {
     const headerLine = writtenContent.trim();
     const columns = headerLine.split(',');
 
-    expect(columns).toHaveLength(53);
+    expect(columns).toHaveLength(54);
 
     // Verify column order for new columns relative to neighbors
     const isTemplateIdx = columns.indexOf('isTemplate');

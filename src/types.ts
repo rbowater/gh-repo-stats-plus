@@ -343,6 +343,7 @@ export interface RepoStatsResult {
   Admin_Teams: string;
   Admin_Team_Members: string;
   Admin_Team_Members_SAML: string;
+  Non_Admin_Teams: string;
   Full_URL: string;
   Migration_Issue: boolean;
   Created: string;

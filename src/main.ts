@@ -937,6 +937,7 @@ export async function writeResultToCsv(
       formattedResult.Full_URL,
       formattedResult.Migration_Issue,
       formattedResult.Created,
+      formattedResult.Custom_Property_Owner,
     ];
 
     appendCsvRow(fileName, values, logger);
@@ -989,6 +990,15 @@ export function mapToRepoStatsResult(
   // Format topics as a semicolon-separated list
   const topicsStr =
     repo.repositoryTopics?.nodes?.map((t) => t.topic.name).join(';') ?? '';
+
+  // Extract the 'owner' custom property value (case-insensitive). Multi-select
+  // values are joined with semicolons; missing/unset properties become ''.
+  const ownerProperty = repo.repositoryCustomPropertyValues?.nodes?.find(
+    (p) => p.propertyName.toLowerCase() === 'owner',
+  );
+  const customPropertyOwner = Array.isArray(ownerProperty?.value)
+    ? ownerProperty.value.join(';')
+    : ownerProperty?.value ?? '';
 
   return {
     Org_Name: repo.owner.login.toLowerCase(),
@@ -1046,6 +1056,7 @@ export function mapToRepoStatsResult(
     Full_URL: repo.url,
     Migration_Issue: hasMigrationIssues,
     Created: repo.createdAt,
+    Custom_Property_Owner: customPropertyOwner,
   };
 }
 

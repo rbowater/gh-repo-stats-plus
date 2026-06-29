@@ -59,6 +59,7 @@ export const REPO_STATS_COLUMNS = [
   'Full_URL',
   'Migration_Issue',
   'Created',
+  'Custom_Property_Owner',
 ];
 
 export const PROJECT_STATS_COLUMNS = [

@@ -177,6 +177,21 @@ export interface RepositoryTopicsConnection {
   nodes: RepositoryTopic[];
 }
 
+/**
+ * A single custom property value on a repository, as returned by the
+ * repositoryCustomPropertyValues GraphQL connection. The `value` scalar is a
+ * string for single-value properties and an array of strings for multi-select
+ * properties.
+ */
+export interface CustomPropertyValueNode {
+  propertyName: string;
+  value: string | string[] | null;
+}
+
+export interface CustomPropertyValuesConnection {
+  nodes: CustomPropertyValueNode[];
+}
+
 export interface PermissionSource {
   permission: string;
   source: {
@@ -230,6 +245,7 @@ export interface RepositoryStats {
   rebaseMergeAllowed: boolean;
   releases: TotalCount;
   repositoryTopics: RepositoryTopicsConnection;
+  repositoryCustomPropertyValues: CustomPropertyValuesConnection;
   squashMergeAllowed: boolean;
   stargazerCount: number;
   tags: TotalCount;
@@ -347,6 +363,7 @@ export interface RepoStatsResult {
   Full_URL: string;
   Migration_Issue: boolean;
   Created: string;
+  Custom_Property_Owner: string;
 }
 
 export interface CollaboratorsResponse {

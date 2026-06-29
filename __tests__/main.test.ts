@@ -87,6 +87,7 @@ describe('initializeCsvFile', () => {
       'Full_URL',
       'Migration_Issue',
       'Created',
+      'Custom_Property_Owner',
     ];
 
     for (const col of expectedColumns) {
@@ -94,7 +95,7 @@ describe('initializeCsvFile', () => {
     }
   });
 
-  it('should include all 54 columns in correct order', () => {
+  it('should include all 55 columns in correct order', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     const logger = createMockLogger();
 
@@ -104,7 +105,7 @@ describe('initializeCsvFile', () => {
     const headerLine = writtenContent.trim();
     const columns = headerLine.split(',');
 
-    expect(columns).toHaveLength(54);
+    expect(columns).toHaveLength(55);
 
     // Verify column order for new columns relative to neighbors
     const isTemplateIdx = columns.indexOf('isTemplate');
@@ -362,6 +363,49 @@ describe('mapToRepoStatsResult', () => {
     const result = mapToRepoStatsResult(repo, issueStats, prStats);
 
     expect(result.License).toBe('Custom License');
+  });
+
+  it('should extract the owner custom property value (case-insensitive)', () => {
+    const repo = createMockRepositoryStats({
+      repositoryCustomPropertyValues: {
+        nodes: [
+          { propertyName: 'tier', value: 'gold' },
+          { propertyName: 'Owner', value: 'platform-team' },
+        ],
+      },
+    });
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(repo, issueStats, prStats);
+
+    expect(result.Custom_Property_Owner).toBe('platform-team');
+  });
+
+  it('should join multi-select owner custom property values with semicolons', () => {
+    const repo = createMockRepositoryStats({
+      repositoryCustomPropertyValues: {
+        nodes: [{ propertyName: 'owner', value: ['team-a', 'team-b'] }],
+      },
+    });
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(repo, issueStats, prStats);
+
+    expect(result.Custom_Property_Owner).toBe('team-a;team-b');
+  });
+
+  it('should default owner custom property to empty when unset', () => {
+    const repo = createMockRepositoryStats({
+      repositoryCustomPropertyValues: { nodes: [] },
+    });
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(repo, issueStats, prStats);
+
+    expect(result.Custom_Property_Owner).toBe('');
   });
 
   it('should handle null defaultBranchRef', () => {

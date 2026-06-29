@@ -101,6 +101,12 @@ const REPO_STATS_FIELDS = `
       }
     }
   }
+  repositoryCustomPropertyValues(first: 50) {
+    nodes {
+      propertyName
+      value
+    }
+  }
   squashMergeAllowed
   stargazerCount
   tags: refs(refPrefix: "refs/tags/") {

@@ -115,6 +115,7 @@ export function createMockRepositoryStats(
       totalCount: 2,
       nodes: [{ topic: { name: 'typescript' } }, { topic: { name: 'github' } }],
     },
+    repositoryCustomPropertyValues: { nodes: [] },
     squashMergeAllowed: true,
     stargazerCount: 42,
     tags: { totalCount: 3 },
@@ -192,6 +193,7 @@ export function createMockRepoStatsResult(
     Full_URL: 'https://github.com/TestOrg/test-repo',
     Migration_Issue: false,
     Created: '2024-01-01T00:00:00Z',
+    Custom_Property_Owner: '',
     ...overrides,
   };
 }

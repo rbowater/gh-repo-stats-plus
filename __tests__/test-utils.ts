@@ -195,6 +195,7 @@ export function createMockRepoStatsResult(
     Migration_Issue: false,
     Created: '2024-01-01T00:00:00Z',
     Custom_Property_Owner: '',
+    Custom_Property_SystemID: '',
     ...overrides,
   };
 }

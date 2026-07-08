@@ -367,6 +367,7 @@ export interface RepoStatsResult {
   Migration_Issue: boolean;
   Created: string;
   Custom_Property_Owner: string;
+  Custom_Property_SystemID: string;
 }
 
 export interface CollaboratorsResponse {

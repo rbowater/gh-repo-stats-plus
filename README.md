@@ -366,6 +366,7 @@ The CSV output includes detailed information about each repository:
   - 1.5 GB or larger size on disk
 - `Created`: Date/time when the repository was created
 - `Custom_Property_Owner`: Value of the repository's `owner` custom property (empty if the property is not set or unavailable)
+- `Custom_Property_SystemID`: Value of the repository's `SystemID` custom property (empty if the property is not set or unavailable)
 
 ### LFS Detection Limitations
 

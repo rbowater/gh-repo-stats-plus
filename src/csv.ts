@@ -61,6 +61,7 @@ export const REPO_STATS_COLUMNS = [
   'Migration_Issue',
   'Created',
   'Custom_Property_Owner',
+  'Custom_Property_SystemID',
 ];
 
 export const PROJECT_STATS_COLUMNS = [

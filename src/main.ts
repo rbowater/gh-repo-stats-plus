@@ -966,6 +966,7 @@ export async function writeResultToCsv(
       formattedResult.Migration_Issue,
       formattedResult.Created,
       formattedResult.Custom_Property_Owner,
+      formattedResult.Custom_Property_SystemID,
     ];
 
     appendCsvRow(fileName, values, logger);
@@ -1029,6 +1030,15 @@ export function mapToRepoStatsResult(
     ? ownerProperty.value.join(';')
     : (ownerProperty?.value ?? '');
 
+  // Extract the 'systemid' custom property value (case-insensitive). Multi-select
+  // values are joined with semicolons; missing/unset properties become ''.
+  const systemIdProperty = repo.repositoryCustomPropertyValues?.nodes?.find(
+    (p) => p.propertyName.toLowerCase() === 'systemid',
+  );
+  const customPropertySystemId = Array.isArray(systemIdProperty?.value)
+    ? systemIdProperty.value.join(';')
+    : (systemIdProperty?.value ?? '');
+
   return {
     Org_Name: repo.owner.login.toLowerCase(),
     Repo_Name: repo.name.toLowerCase(),
@@ -1087,6 +1097,7 @@ export function mapToRepoStatsResult(
     Migration_Issue: hasMigrationIssues,
     Created: repo.createdAt,
     Custom_Property_Owner: customPropertyOwner,
+    Custom_Property_SystemID: customPropertySystemId,
   };
 }
 

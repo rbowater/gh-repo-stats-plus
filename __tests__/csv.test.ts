@@ -104,7 +104,9 @@ describe('csv', () => {
 
       const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1];
       expect(writtenContent).toContain('Org_Name,Repo_Name');
-      expect(writtenContent).toContain('Migration_Issue,Created,Custom_Property_Owner\n');
+      expect(writtenContent).toContain(
+        'Migration_Issue,Created,Custom_Property_Owner\n',
+      );
     });
 
     it('should work with PROJECT_STATS_COLUMNS', () => {
@@ -250,7 +252,7 @@ describe('csv', () => {
     });
 
     it('should have expected repo stats column count', () => {
-      expect(REPO_STATS_COLUMNS).toHaveLength(55);
+      expect(REPO_STATS_COLUMNS).toHaveLength(56);
     });
 
     it('should have expected project stats column count', () => {

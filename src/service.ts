@@ -22,6 +22,7 @@ import {
   RepoStatsGraphQLResponse,
   SamlExternalIdentityNode,
   TeamMembersResponse,
+  WebhookPresence,
 } from './types.js';
 import {
   ORG_REPO_STATS_QUERY,
@@ -577,10 +578,7 @@ export class OctokitClient {
    * Returns the login of the top contributor, or null if no contributors
    * are found (e.g. empty repos, or repos with only anonymous commits).
    */
-  async getTopContributor(
-    owner: string,
-    repo: string,
-  ): Promise<string | null> {
+  async getTopContributor(owner: string, repo: string): Promise<string | null> {
     try {
       const response = await this.octokit.rest.repos.listContributors({
         owner,
@@ -594,6 +592,38 @@ export class OctokitClient {
       return topContributor?.login ?? null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Determines whether a repository has any webhooks configured.
+   *
+   * Uses REST API: GET /repos/{owner}/{repo}/hooks with per_page=1 to minimize
+   * payload and request cost. Returns 'UNKNOWN' when permissions do not allow
+   * webhook visibility (e.g. 403/404), so callers do not misclassify repos.
+   */
+  async getRepoHasWebhooks(
+    owner: string,
+    repo: string,
+  ): Promise<WebhookPresence> {
+    try {
+      const response = await this.octokit.request(
+        'GET /repos/{owner}/{repo}/hooks',
+        {
+          owner,
+          repo,
+          per_page: 1,
+          headers: this.octokit_headers,
+        },
+      );
+
+      return response.data.length > 0 ? 'TRUE' : 'FALSE';
+    } catch (error) {
+      const status = (error as { status?: number })?.status;
+      if (status === 403 || status === 404) {
+        return 'UNKNOWN';
+      }
+      throw error;
     }
   }
 }

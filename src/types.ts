@@ -308,6 +308,8 @@ export interface PullRequestStatsResult {
   prReviewCount: number;
 }
 
+export type WebhookPresence = 'TRUE' | 'FALSE' | 'UNKNOWN';
+
 export interface RepoStatsResult {
   Org_Name: string;
   Repo_Name: string;
@@ -341,6 +343,7 @@ export interface RepoStatsResult {
   Fork_Count: number;
   Watcher_Count: number;
   Has_Wiki: boolean;
+  Has_Webhooks: WebhookPresence;
   Has_LFS: boolean;
   Default_Branch: string;
   Primary_Language: string;

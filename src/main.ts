@@ -14,6 +14,7 @@ import {
   RepoProcessingResult,
   OrgContext,
   CommandConfig,
+  WebhookPresence,
 } from './types.js';
 import { createLogger } from './logger.js';
 import { createAuthConfig } from './auth.js';
@@ -392,7 +393,7 @@ async function analyzeRepositoryStats({
   logger.info(`Analyzing repository: ${owner}/${repo.name}`);
 
   // Run issue, PR, collaborator analysis, and top contributor fetch concurrently
-  const [issueStats, prStats, collaboratorTeams, topContributor] =
+  const [issueStats, prStats, collaboratorTeams, topContributor, hasWebhooks] =
     await Promise.all([
       analyzeIssues({
         owner,
@@ -419,6 +420,7 @@ async function analyzeRepositoryStats({
         logger,
       }),
       client.getTopContributor(owner, repo.name),
+      client.getRepoHasWebhooks(owner, repo.name),
     ]);
 
   const { adminTeams, nonAdminTeams } = collaboratorTeams;
@@ -434,11 +436,17 @@ async function analyzeRepositoryStats({
   });
 
   // Ensure SAML identities are loaded for top contributor lookup
-  await ensureSamlLoaded({ org: owner, per_page: extraPageSize, client, logger, cache: adminTeamCache });
+  await ensureSamlLoaded({
+    org: owner,
+    per_page: extraPageSize,
+    client,
+    logger,
+    cache: adminTeamCache,
+  });
 
   // Look up SAML identity for top contributor
   const topContributorSaml = topContributor
-    ? adminTeamCache.samlIdentities.get(topContributor) ?? ''
+    ? (adminTeamCache.samlIdentities.get(topContributor) ?? '')
     : '';
 
   return mapToRepoStatsResult(
@@ -450,6 +458,7 @@ async function analyzeRepositoryStats({
     topContributor,
     topContributorSaml,
     nonAdminTeams,
+    hasWebhooks,
   );
 }
 
@@ -502,7 +511,11 @@ async function handleRepoProcessingSuccess({
 }: {
   result: RepoStatsResult;
   processedState: ProcessedPageState;
-  state: { successCount: number; retryCount: number; resetSignal?: RetryResetSignal };
+  state: {
+    successCount: number;
+    retryCount: number;
+    resetSignal?: RetryResetSignal;
+  };
   opts: Arguments;
   client: OctokitClient;
   logger: Logger;
@@ -559,7 +572,11 @@ async function processRepositoriesFromFile({
   logger: Logger;
   opts: Arguments;
   processedState: ProcessedPageState;
-  state: { successCount: number; retryCount: number; resetSignal?: RetryResetSignal };
+  state: {
+    successCount: number;
+    retryCount: number;
+    resetSignal?: RetryResetSignal;
+  };
   fileName: string;
   stateManager: StateManager;
   adminTeamCache: AdminTeamCache;
@@ -675,7 +692,11 @@ async function processRepositories({
   logger: Logger;
   opts: Arguments;
   processedState: ProcessedPageState;
-  state: { successCount: number; retryCount: number; resetSignal?: RetryResetSignal };
+  state: {
+    successCount: number;
+    retryCount: number;
+    resetSignal?: RetryResetSignal;
+  };
   fileName: string;
   stateManager: StateManager;
 }): Promise<RepoProcessingResult> {
@@ -759,7 +780,12 @@ async function processRepositories({
       adminTeamCache,
     })) {
       try {
-        if (isRepoAlreadyProcessed(processedState.processedRepos, result.Repo_Name)) {
+        if (
+          isRepoAlreadyProcessed(
+            processedState.processedRepos,
+            result.Repo_Name,
+          )
+        ) {
           logger.debug(
             `Skipping already processed repository: ${result.Repo_Name}`,
           );
@@ -866,6 +892,7 @@ export async function writeResultToCsv(
       isArchived: result.isArchived?.toString().toUpperCase() || 'FALSE',
       isTemplate: result.isTemplate?.toString().toUpperCase() || 'FALSE',
       Has_Wiki: result.Has_Wiki?.toString().toUpperCase() || 'FALSE',
+      Has_Webhooks: result.Has_Webhooks || 'UNKNOWN',
       Has_LFS: result.Has_LFS?.toString().toUpperCase() || 'FALSE',
       Auto_Merge_Allowed:
         result.Auto_Merge_Allowed?.toString().toUpperCase() || 'FALSE',
@@ -915,6 +942,7 @@ export async function writeResultToCsv(
       formattedResult.Fork_Count,
       formattedResult.Watcher_Count,
       formattedResult.Has_Wiki,
+      formattedResult.Has_Webhooks,
       formattedResult.Has_LFS,
       formattedResult.Default_Branch,
       formattedResult.Primary_Language,
@@ -967,6 +995,7 @@ export function mapToRepoStatsResult(
   topContributor: string | null = null,
   topContributorSaml: string = '',
   nonAdminTeams: string[] = [],
+  hasWebhooks: WebhookPresence = 'UNKNOWN',
 ): RepoStatsResult {
   const repoSizeMb = convertKbToMb(repo.diskUsage);
   const totalRecordCount = calculateRecordCount(repo, issueStats, prStats);
@@ -998,7 +1027,7 @@ export function mapToRepoStatsResult(
   );
   const customPropertyOwner = Array.isArray(ownerProperty?.value)
     ? ownerProperty.value.join(';')
-    : ownerProperty?.value ?? '';
+    : (ownerProperty?.value ?? '');
 
   return {
     Org_Name: repo.owner.login.toLowerCase(),
@@ -1034,6 +1063,7 @@ export function mapToRepoStatsResult(
     Fork_Count: repo.forkCount ?? 0,
     Watcher_Count: repo.watchers?.totalCount ?? 0,
     Has_Wiki: repo.hasWikiEnabled,
+    Has_Webhooks: hasWebhooks,
     Has_LFS: hasLfsTracking(repo.gitattributes?.text),
     Default_Branch: repo.defaultBranchRef?.name ?? '',
     Primary_Language: repo.primaryLanguage?.name ?? '',

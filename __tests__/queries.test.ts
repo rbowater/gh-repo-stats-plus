@@ -340,9 +340,7 @@ describe('GraphQL Queries', () => {
     });
 
     it('should query SAML identity provider with external identities', () => {
-      expect(ORG_SAML_IDENTITIES_QUERY).toContain(
-        'organization(login: $org)',
-      );
+      expect(ORG_SAML_IDENTITIES_QUERY).toContain('organization(login: $org)');
       expect(ORG_SAML_IDENTITIES_QUERY).toContain('samlIdentityProvider');
       expect(ORG_SAML_IDENTITIES_QUERY).toContain('externalIdentities');
       expect(ORG_SAML_IDENTITIES_QUERY).toContain('login');

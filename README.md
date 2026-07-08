@@ -346,6 +346,7 @@ The CSV output includes detailed information about each repository:
 - `Fork_Count`: Number of forks
 - `Watcher_Count`: Number of watchers
 - `Has_Wiki`: Whether the repository has wiki feature enabled
+- `Has_Webhooks`: Whether the repository has at least one webhook (`TRUE`/`FALSE`/`UNKNOWN`)
 - `Has_LFS`: Whether the repository has Git LFS tracking configured (see [LFS Detection Limitations](#lfs-detection-limitations))
 - `Default_Branch`: Name of the default branch
 - `Primary_Language`: Primary programming language of the repository
@@ -376,6 +377,14 @@ The `Has_LFS` column indicates whether the repository's `.gitattributes` file on
 - **Root `.gitattributes` only**: Nested `.gitattributes` files in subdirectories are not inspected.
 - **Detection, not sizing**: This column only indicates whether LFS is configured — it does not report the number or size of LFS objects.
 - **Empty repositories**: Empty repositories will always report `FALSE` since there is no `.gitattributes` file to read.
+
+### Webhook Detection Notes
+
+The `Has_Webhooks` column is derived from the repository webhooks REST endpoint using a minimal request (`per_page=1`) per repository.
+
+- `TRUE`: The repository has at least one webhook.
+- `FALSE`: The repository has no webhooks.
+- `UNKNOWN`: The token cannot determine webhook visibility for that repository (for example, due to permissions).
 
 **For actual LFS sizing**, use the standalone `script/lfs-size.sh` script to inspect individual repositories where `Has_LFS` is `TRUE`. This performs a shallow bare clone and reports per-file LFS sizes and totals. See the [LFS Sizing Guide](docs/lfs-sizing.md) for prerequisites and usage.
 

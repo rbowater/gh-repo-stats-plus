@@ -171,6 +171,7 @@ export function createMockRepoStatsResult(
     Fork_Count: 3,
     Watcher_Count: 10,
     Has_Wiki: true,
+    Has_Webhooks: 'UNKNOWN',
     Has_LFS: false,
     Default_Branch: 'main',
     Primary_Language: 'TypeScript',

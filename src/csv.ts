@@ -37,6 +37,7 @@ export const REPO_STATS_COLUMNS = [
   'Fork_Count',
   'Watcher_Count',
   'Has_Wiki',
+  'Has_Webhooks',
   'Has_LFS',
   'Default_Branch',
   'Primary_Language',

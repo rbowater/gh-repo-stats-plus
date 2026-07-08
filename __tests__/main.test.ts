@@ -67,6 +67,7 @@ describe('initializeCsvFile', () => {
       'Fork_Count',
       'Watcher_Count',
       'Has_Wiki',
+      'Has_Webhooks',
       'Has_LFS',
       'Default_Branch',
       'Primary_Language',
@@ -95,7 +96,7 @@ describe('initializeCsvFile', () => {
     }
   });
 
-  it('should include all 55 columns in correct order', () => {
+  it('should include all 56 columns in correct order', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     const logger = createMockLogger();
 
@@ -105,7 +106,7 @@ describe('initializeCsvFile', () => {
     const headerLine = writtenContent.trim();
     const columns = headerLine.split(',');
 
-    expect(columns).toHaveLength(55);
+    expect(columns).toHaveLength(56);
 
     // Verify column order for new columns relative to neighbors
     const isTemplateIdx = columns.indexOf('isTemplate');
@@ -125,8 +126,11 @@ describe('initializeCsvFile', () => {
     const hasWikiIdx = columns.indexOf('Has_Wiki');
     expect(hasWikiIdx).toBe(watcherIdx + 1);
 
+    const hasWebhooksIdx = columns.indexOf('Has_Webhooks');
+    expect(hasWebhooksIdx).toBe(hasWikiIdx + 1);
+
     const hasLfsIdx = columns.indexOf('Has_LFS');
-    expect(hasLfsIdx).toBe(hasWikiIdx + 1);
+    expect(hasLfsIdx).toBe(hasWebhooksIdx + 1);
 
     const defaultBranchIdx = columns.indexOf('Default_Branch');
     expect(defaultBranchIdx).toBe(hasLfsIdx + 1);
@@ -267,6 +271,27 @@ describe('mapToRepoStatsResult', () => {
     expect(result.Merge_Commit_Allowed).toBe(true);
     expect(result.Squash_Merge_Allowed).toBe(true);
     expect(result.Rebase_Merge_Allowed).toBe(true);
+    expect(result.Has_Webhooks).toBe('UNKNOWN');
+  });
+
+  it('should map Has_Webhooks when provided', () => {
+    const repo = createMockRepositoryStats();
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(
+      repo,
+      issueStats,
+      prStats,
+      [],
+      { adminTeamMembers: '', adminTeamMembersSaml: '' },
+      null,
+      '',
+      [],
+      'TRUE',
+    );
+
+    expect(result.Has_Webhooks).toBe('TRUE');
   });
 
   it('should detect LFS tracking from gitattributes', () => {

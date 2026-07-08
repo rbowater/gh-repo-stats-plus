@@ -150,7 +150,11 @@ async function processProjectStats({
   logger: Logger;
   opts: Arguments;
   processedState: ProcessedPageState;
-  state: { successCount: number; retryCount: number; resetSignal?: RetryResetSignal };
+  state: {
+    successCount: number;
+    retryCount: number;
+    resetSignal?: RetryResetSignal;
+  };
   fileName: string;
   stateManager: StateManager;
 }): Promise<RepoProcessingResult> {
@@ -486,7 +490,11 @@ async function handleProjectStatsSuccess({
 }: {
   repoName: string;
   processedState: ProcessedPageState;
-  state: { successCount: number; retryCount: number; resetSignal?: RetryResetSignal };
+  state: {
+    successCount: number;
+    retryCount: number;
+    resetSignal?: RetryResetSignal;
+  };
   opts: Arguments;
   logger: Logger;
   processedCount: number;

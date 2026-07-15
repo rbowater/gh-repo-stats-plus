@@ -31,6 +31,10 @@ gh repo-stats-plus missing-repos [options]
 
 - `--page-size <size>`: Number of items per page (Default: 10)
 
+### Processing Options
+
+- `--skip-repo-list <file>`: Path to file containing list of repositories to exclude from the missing-repos check (format: `owner/repo_name` or `repo_name`), one per line.
+
 ## Examples
 
 ### Basic Usage

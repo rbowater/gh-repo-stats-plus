@@ -112,6 +112,7 @@ vi.mock('../src/utils.js', () => ({
     }
     return str;
   }),
+  buildSkipRepoSet: vi.fn().mockReturnValue(new Set()),
 }));
 
 // Import after mocks are set up

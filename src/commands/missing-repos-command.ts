@@ -1,7 +1,11 @@
 import * as commander from 'commander';
 import { resolve, isAbsolute } from 'path';
 import VERSION from '../version.js';
-import { parseIntOption, parseApiVersionOption } from '../utils.js';
+import {
+  parseIntOption,
+  parseApiVersionOption,
+  parseFileAsNewlineSeparatedOption,
+} from '../utils.js';
 import { DEFAULT_API_VERSION, VALID_API_VERSIONS } from '../service.js';
 import { Arguments } from '../types.js';
 import { checkForMissingRepos } from '../main.js';
@@ -81,6 +85,14 @@ missingReposCommand
     new Option('--output-dir <dir>', 'Output directory for generated files')
       .env('OUTPUT_DIR')
       .default('output'),
+  )
+  .addOption(
+    new Option(
+      '--skip-repo-list <file>',
+      'Path to file containing list of repositories to exclude from the missing-repos check (format: owner/repo_name or repo_name), one per line.',
+    )
+      .env('SKIP_REPO_LIST')
+      .argParser(parseFileAsNewlineSeparatedOption),
   )
   .action(async (options: Arguments) => {
     console.log('Version:', VERSION);

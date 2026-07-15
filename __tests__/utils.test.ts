@@ -12,6 +12,7 @@ import {
   parseNewlineSeparatedOption,
   parseFileAsNewlineSeparatedOption,
   parseApiVersionOption,
+  buildSkipRepoSet,
 } from '../src/utils.js';
 import { existsSync, readFileSync } from 'fs';
 
@@ -458,6 +459,86 @@ describe('Utils', () => {
       expect(
         parseFileAsNewlineSeparatedOption('orgs.txt', ['org1', 'org2']),
       ).toEqual(['org1', 'org2', 'org3', 'org4']);
+    });
+  });
+
+  describe('buildSkipRepoSet', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('should return an empty set when skipRepoList is undefined', () => {
+      expect(buildSkipRepoSet(undefined, 'my-org')).toEqual(new Set());
+    });
+
+    it('should return an empty set when skipRepoList is an empty array', () => {
+      expect(buildSkipRepoSet([], 'my-org')).toEqual(new Set());
+    });
+
+    it('should build a lowercase set from owner/repo entries matching the org', () => {
+      const result = buildSkipRepoSet(
+        ['My-Org/Huge-Repo', 'my-org/another-repo'],
+        'my-org',
+      );
+      expect(result).toEqual(new Set(['huge-repo', 'another-repo']));
+    });
+
+    it('should exclude owner/repo entries that do not match the org', () => {
+      const result = buildSkipRepoSet(
+        ['my-org/huge-repo', 'other-org/other-repo'],
+        'my-org',
+      );
+      expect(result).toEqual(new Set(['huge-repo']));
+    });
+
+    it('should support bare repo names regardless of org', () => {
+      const result = buildSkipRepoSet(['huge-repo'], 'my-org');
+      expect(result).toEqual(new Set(['huge-repo']));
+    });
+
+    it('should filter out blank lines and comments', () => {
+      const result = buildSkipRepoSet(
+        ['my-org/huge-repo', '', '   ', '# a comment', 'my-org/other-repo'],
+        'my-org',
+      );
+      expect(result).toEqual(new Set(['huge-repo', 'other-repo']));
+    });
+
+    it('should read entries from a file path when given a string', () => {
+      vi.mocked(readFileSync).mockReturnValue(
+        'my-org/huge-repo\nmy-org/other-repo',
+      );
+
+      const result = buildSkipRepoSet('skip-repos.txt', 'my-org');
+      expect(result).toEqual(new Set(['huge-repo', 'other-repo']));
+    });
+
+    it('should log the number of repositories loaded to skip', () => {
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+
+      buildSkipRepoSet(['my-org/huge-repo'], 'my-org', logger);
+
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Loaded 1 repositories to skip'),
+      );
+    });
+
+    it('should not log when there is nothing to skip', () => {
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+
+      buildSkipRepoSet(undefined, 'my-org', logger);
+
+      expect(logger.info).not.toHaveBeenCalled();
     });
   });
 

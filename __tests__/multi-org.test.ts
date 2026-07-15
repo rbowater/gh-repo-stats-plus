@@ -98,6 +98,7 @@ vi.mock('../src/utils.js', () => ({
   convertKbToMb: vi.fn().mockReturnValue(0),
   checkIfHasMigrationIssues: vi.fn().mockReturnValue(false),
   hasLfsTracking: vi.fn().mockReturnValue(false),
+  buildSkipRepoSet: vi.fn().mockReturnValue(new Set()),
 }));
 
 // Mock retry

@@ -51,6 +51,7 @@ export interface Arguments {
 
   repoList: string[] | string | undefined;
   repoNamesFile?: string;
+  skipRepoList?: string[] | string;
   autoProcessMissing?: boolean;
 
   // batching
@@ -366,8 +367,7 @@ export interface RepoStatsResult {
   Full_URL: string;
   Migration_Issue: boolean;
   Created: string;
-  Custom_Property_Owner: string;
-  Custom_Property_SystemID: string;
+  Custom_Properties: string;
 }
 
 export interface CollaboratorsResponse {

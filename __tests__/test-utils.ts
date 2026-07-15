@@ -194,8 +194,7 @@ export function createMockRepoStatsResult(
     Full_URL: 'https://github.com/TestOrg/test-repo',
     Migration_Issue: false,
     Created: '2024-01-01T00:00:00Z',
-    Custom_Property_Owner: '',
-    Custom_Property_SystemID: '',
+    Custom_Properties: '',
     ...overrides,
   };
 }

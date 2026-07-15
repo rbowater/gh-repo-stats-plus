@@ -44,6 +44,7 @@ gh repo-stats-plus repo-stats [options]
 
 - `--resume-from-last-save`: Resume from the last saved state
 - `--repo-list <file>`: Path to file containing list of repositories to process (format: owner/repo_name)
+- `--skip-repo-list <file>`: Path to file containing list of repositories to skip during processing (format: `owner/repo_name` or `repo_name`), one per line. Useful for excluding repositories the GitHub GraphQL API cannot process (e.g. due to an excessive number of records).
 - `--auto-process-missing`: Automatically process any missing repositories when main processing is complete
 - `--output-dir <dir>`: Output directory for generated files and state files (Default: output)
 - `--clean-state`: Remove state file after successful completion

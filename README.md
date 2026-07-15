@@ -179,6 +179,26 @@ gh repo-stats-plus missing-repos \
 gh repo-stats-plus repo-stats --org-name my-org --auto-process-missing
 ```
 
+### Skip Problematic Repositories
+
+Some repositories have so many records (issues, pull requests, comments, etc.) that the GitHub GraphQL API cannot process them. Provide a list of repositories to exclude so processing continues without them:
+
+```bash
+# Create a skip list file (format: owner/repo_name or just repo_name, one per line)
+cat > skip-repos.txt << EOF
+my-org/huge-legacy-repo
+another-problematic-repo
+EOF
+
+gh repo-stats-plus repo-stats --org-name my-org --skip-repo-list skip-repos.txt
+
+# Also supported by project-stats and missing-repos
+gh repo-stats-plus project-stats --org-name my-org --skip-repo-list skip-repos.txt
+```
+
+> [!NOTE]
+> Skipped repositories are excluded from processing entirely and are not written to the output CSV or flagged as missing by the `missing-repos` command.
+
 ### Batch Processing
 
 Split a large organization into parallel batches (e.g., for GitHub Actions matrix jobs):
@@ -244,6 +264,7 @@ gh repo-stats-plus project-stats --org-name my-org --resume-from-last-save
 
 - `--resume-from-last-save`: Resume from the last saved state
 - `--repo-list <file>`: Path to file containing list of repositories to process (format: owner/repo_name)
+- `--skip-repo-list <file>`: Path to file containing list of repositories to skip during processing (format: owner/repo_name or repo_name). Useful for excluding repositories the GitHub GraphQL API cannot process (e.g. due to an excessive number of records)
 - `--auto-process-missing`: Automatically process any missing repositories when main processing is complete
 - `--clean-state`: Remove state file after successful completion
 
@@ -365,8 +386,7 @@ The CSV output includes detailed information about each repository:
   - 60,000 or more objects being imported
   - 1.5 GB or larger size on disk
 - `Created`: Date/time when the repository was created
-- `Custom_Property_Owner`: Value of the repository's `owner` custom property (empty if the property is not set or unavailable)
-- `Custom_Property_SystemID`: Value of the repository's `SystemID` custom property (empty if the property is not set or unavailable)
+- `Custom_Properties`: Semicolon-separated list of all set [custom properties](https://docs.github.com/en/organizations/managing-organization-settings/managing-custom-properties-for-repositories-in-your-organization) as `name=value` pairs (e.g., `owner=platform-team;systemid=SYS-1234`). Multi-select property values are joined with commas (e.g., `cost-center=1234,5678`). Properties with no value set are omitted.
 
 ### LFS Detection Limitations
 

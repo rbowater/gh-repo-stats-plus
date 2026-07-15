@@ -88,8 +88,7 @@ describe('initializeCsvFile', () => {
       'Full_URL',
       'Migration_Issue',
       'Created',
-      'Custom_Property_Owner',
-      'Custom_Property_SystemID',
+      'Custom_Properties',
     ];
 
     for (const col of expectedColumns) {
@@ -97,7 +96,7 @@ describe('initializeCsvFile', () => {
     }
   });
 
-  it('should include all 57 columns in correct order', () => {
+  it('should include all 56 columns in correct order', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     const logger = createMockLogger();
 
@@ -107,7 +106,7 @@ describe('initializeCsvFile', () => {
     const headerLine = writtenContent.trim();
     const columns = headerLine.split(',');
 
-    expect(columns).toHaveLength(57);
+    expect(columns).toHaveLength(56);
 
     // Verify column order for new columns relative to neighbors
     const isTemplateIdx = columns.indexOf('isTemplate');
@@ -391,12 +390,13 @@ describe('mapToRepoStatsResult', () => {
     expect(result.License).toBe('Custom License');
   });
 
-  it('should extract the owner custom property value (case-insensitive)', () => {
+  it('should format all set custom properties as sorted name=value pairs', () => {
     const repo = createMockRepositoryStats({
       repositoryCustomPropertyValues: {
         nodes: [
           { propertyName: 'tier', value: 'gold' },
           { propertyName: 'Owner', value: 'platform-team' },
+          { propertyName: 'SystemID', value: 'SYS-1234' },
         ],
       },
     });
@@ -405,10 +405,12 @@ describe('mapToRepoStatsResult', () => {
 
     const result = mapToRepoStatsResult(repo, issueStats, prStats);
 
-    expect(result.Custom_Property_Owner).toBe('platform-team');
+    expect(result.Custom_Properties).toBe(
+      'Owner=platform-team;SystemID=SYS-1234;tier=gold',
+    );
   });
 
-  it('should join multi-select owner custom property values with semicolons', () => {
+  it('should join multi-select custom property values with commas', () => {
     const repo = createMockRepositoryStats({
       repositoryCustomPropertyValues: {
         nodes: [{ propertyName: 'owner', value: ['team-a', 'team-b'] }],
@@ -419,27 +421,16 @@ describe('mapToRepoStatsResult', () => {
 
     const result = mapToRepoStatsResult(repo, issueStats, prStats);
 
-    expect(result.Custom_Property_Owner).toBe('team-a;team-b');
+    expect(result.Custom_Properties).toBe('owner=team-a,team-b');
   });
 
-  it('should default owner custom property to empty when unset', () => {
-    const repo = createMockRepositoryStats({
-      repositoryCustomPropertyValues: { nodes: [] },
-    });
-    const issueStats = createMockIssueStats();
-    const prStats = createMockPrStats();
-
-    const result = mapToRepoStatsResult(repo, issueStats, prStats);
-
-    expect(result.Custom_Property_Owner).toBe('');
-  });
-
-  it('should extract the systemid custom property value (case-insensitive)', () => {
+  it('should omit custom properties with no value set', () => {
     const repo = createMockRepositoryStats({
       repositoryCustomPropertyValues: {
         nodes: [
-          { propertyName: 'tier', value: 'gold' },
-          { propertyName: 'SystemID', value: 'SYS-1234' },
+          { propertyName: 'owner', value: '' },
+          { propertyName: 'tags', value: [] },
+          { propertyName: 'systemid', value: 'SYS-1' },
         ],
       },
     });
@@ -448,24 +439,10 @@ describe('mapToRepoStatsResult', () => {
 
     const result = mapToRepoStatsResult(repo, issueStats, prStats);
 
-    expect(result.Custom_Property_SystemID).toBe('SYS-1234');
+    expect(result.Custom_Properties).toBe('systemid=SYS-1');
   });
 
-  it('should join multi-select systemid custom property values with semicolons', () => {
-    const repo = createMockRepositoryStats({
-      repositoryCustomPropertyValues: {
-        nodes: [{ propertyName: 'systemid', value: ['SYS-1', 'SYS-2'] }],
-      },
-    });
-    const issueStats = createMockIssueStats();
-    const prStats = createMockPrStats();
-
-    const result = mapToRepoStatsResult(repo, issueStats, prStats);
-
-    expect(result.Custom_Property_SystemID).toBe('SYS-1;SYS-2');
-  });
-
-  it('should default systemid custom property to empty when unset', () => {
+  it('should default custom properties to empty when none are set', () => {
     const repo = createMockRepositoryStats({
       repositoryCustomPropertyValues: { nodes: [] },
     });
@@ -474,7 +451,7 @@ describe('mapToRepoStatsResult', () => {
 
     const result = mapToRepoStatsResult(repo, issueStats, prStats);
 
-    expect(result.Custom_Property_SystemID).toBe('');
+    expect(result.Custom_Properties).toBe('');
   });
 
   it('should handle null defaultBranchRef', () => {

@@ -213,6 +213,14 @@ repoStatsCommand
       .argParser(parseBooleanOption),
   )
   .addOption(
+    new Option(
+      '--skip-repo-list <file>',
+      'Path to file containing list of repositories to skip during processing (format: owner/repo_name or repo_name), one per line. Useful for excluding repositories the GitHub GraphQL API cannot process (e.g. due to an excessive number of records).',
+    )
+      .env('SKIP_REPO_LIST')
+      .argParser(parseFileAsNewlineSeparatedOption),
+  )
+  .addOption(
     new Option('--output-dir <dir>', 'Output directory for generated files')
       .env('OUTPUT_DIR')
       .default('output'),

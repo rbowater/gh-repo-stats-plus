@@ -2,6 +2,7 @@ import { mkdir } from 'fs/promises';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { VALID_API_VERSIONS } from './service.js';
+import type { Logger } from './types.js';
 
 function generateTimestamp(): string {
   return new Date()
@@ -316,4 +317,68 @@ export function parseApiVersionOption(value: string): string {
     );
   }
   return value;
+}
+
+/**
+ * Builds a lowercase set of repository names to skip during processing.
+ *
+ * Accepts either an already-parsed array of entries (e.g. from Commander's
+ * `argParser`) or a raw file path, and supports two entry formats:
+ * - `owner/repo` - only applied when `orgName` matches the entry's owner
+ * - `repo` - applied regardless of organization
+ *
+ * Blank lines and lines starting with `#` are ignored.
+ *
+ * @param skipRepoList - Array of skip entries, or a path to a file containing them
+ * @param orgName - The organization currently being processed, used to filter `owner/repo` entries
+ * @param logger - Optional logger for reporting how many repositories will be skipped
+ * @returns A Set of lowercase repository names to skip
+ *
+ * @example
+ * buildSkipRepoSet(['my-org/huge-repo', 'another-repo'], 'my-org') // Set { 'huge-repo', 'another-repo' }
+ */
+export function buildSkipRepoSet(
+  skipRepoList: string[] | string | undefined,
+  orgName?: string,
+  logger?: Logger,
+): Set<string> {
+  if (
+    !skipRepoList ||
+    (Array.isArray(skipRepoList) && skipRepoList.length === 0)
+  ) {
+    return new Set();
+  }
+
+  const rawLines = Array.isArray(skipRepoList)
+    ? skipRepoList
+    : readFileSync(skipRepoList, 'utf-8').split(/\r?\n/);
+
+  const skipSet = new Set<string>();
+
+  for (const line of rawLines) {
+    const trimmed = line.trim();
+    if (trimmed === '' || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    const segments = trimmed.split('/');
+    if (segments.length === 2 && segments[0].trim() && segments[1].trim()) {
+      const owner = segments[0].trim();
+      const repo = segments[1].trim();
+      if (orgName && owner.toLowerCase() !== orgName.toLowerCase()) {
+        continue;
+      }
+      skipSet.add(repo.toLowerCase());
+    } else {
+      skipSet.add(trimmed.toLowerCase());
+    }
+  }
+
+  if (skipSet.size > 0) {
+    logger?.info(
+      `Loaded ${skipSet.size} repositories to skip${orgName ? ` for organization: ${orgName}` : ''}`,
+    );
+  }
+
+  return skipSet;
 }

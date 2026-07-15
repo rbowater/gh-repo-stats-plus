@@ -36,6 +36,7 @@ import {
   formatElapsedTime,
   resolveOutputPath,
   applyBatchStaggerDelay,
+  buildSkipRepoSet,
 } from './utils.js';
 import {
   initializeCsvFile as initializeCsvFileGeneric,
@@ -470,6 +471,7 @@ async function* processRepoStats({
   processedState,
   stateManager,
   adminTeamCache,
+  skipRepoSet,
 }: {
   reposIterator: AsyncGenerator<RepositoryStats, void, unknown>;
   client: OctokitClient;
@@ -478,12 +480,20 @@ async function* processRepoStats({
   processedState: ProcessedPageState;
   stateManager: StateManager;
   adminTeamCache: AdminTeamCache;
+  skipRepoSet?: Set<string>;
 }): AsyncGenerator<RepoStatsResult> {
   for await (const repo of reposIterator) {
     if (repo.pageInfo?.endCursor) {
       stateManager.update(processedState, {
         newCursor: repo.pageInfo.endCursor,
       });
+    }
+
+    if (skipRepoSet?.has(repo.name.toLowerCase())) {
+      logger.info(
+        `Skipping repository per skip list: ${repo.owner.login}/${repo.name}`,
+      );
+      continue;
     }
 
     const result = await analyzeRepositoryStats({
@@ -619,6 +629,8 @@ async function processRepositoriesFromFile({
 
   let processedCount = 0;
 
+  const skipRepoSet = buildSkipRepoSet(opts.skipRepoList, opts.orgName, logger);
+
   for (const { owner, repo } of repoList) {
     try {
       // Processed repos are stored lowercased (see mapToRepoStatsResult, which
@@ -629,6 +641,11 @@ async function processRepositoriesFromFile({
       // (e.g. after a 500), producing many duplicate rows.
       if (isRepoAlreadyProcessed(processedState.processedRepos, repo)) {
         logger.debug(`Skipping already processed repository: ${repo}`);
+        continue;
+      }
+
+      if (skipRepoSet.has(repo.toLowerCase())) {
+        logger.info(`Skipping repository per skip list: ${owner}/${repo}`);
         continue;
       }
 
@@ -766,6 +783,8 @@ async function processRepositories({
     startCursor,
   );
 
+  const skipRepoSet = buildSkipRepoSet(opts.skipRepoList, opts.orgName, logger);
+
   let processedCount = 0;
 
   try {
@@ -778,6 +797,7 @@ async function processRepositories({
       processedState,
       stateManager,
       adminTeamCache,
+      skipRepoSet,
     })) {
       try {
         if (
@@ -965,8 +985,7 @@ export async function writeResultToCsv(
       formattedResult.Full_URL,
       formattedResult.Migration_Issue,
       formattedResult.Created,
-      formattedResult.Custom_Property_Owner,
-      formattedResult.Custom_Property_SystemID,
+      formattedResult.Custom_Properties,
     ];
 
     appendCsvRow(fileName, values, logger);
@@ -1021,23 +1040,18 @@ export function mapToRepoStatsResult(
   const topicsStr =
     repo.repositoryTopics?.nodes?.map((t) => t.topic.name).join(';') ?? '';
 
-  // Extract the 'owner' custom property value (case-insensitive). Multi-select
-  // values are joined with semicolons; missing/unset properties become ''.
-  const ownerProperty = repo.repositoryCustomPropertyValues?.nodes?.find(
-    (p) => p.propertyName.toLowerCase() === 'owner',
-  );
-  const customPropertyOwner = Array.isArray(ownerProperty?.value)
-    ? ownerProperty.value.join(';')
-    : (ownerProperty?.value ?? '');
-
-  // Extract the 'systemid' custom property value (case-insensitive). Multi-select
-  // values are joined with semicolons; missing/unset properties become ''.
-  const systemIdProperty = repo.repositoryCustomPropertyValues?.nodes?.find(
-    (p) => p.propertyName.toLowerCase() === 'systemid',
-  );
-  const customPropertySystemId = Array.isArray(systemIdProperty?.value)
-    ? systemIdProperty.value.join(';')
-    : (systemIdProperty?.value ?? '');
+  // Format all set custom properties as a single "name=value" list, sorted by
+  // property name for deterministic output. Multi-select values are joined
+  // with commas; properties with no value set are omitted entirely.
+  const customPropertiesStr = (repo.repositoryCustomPropertyValues?.nodes ?? [])
+    .filter((p) => (Array.isArray(p.value) ? p.value.length > 0 : !!p.value))
+    .map((p) => ({
+      name: p.propertyName,
+      value: Array.isArray(p.value) ? p.value.join(',') : p.value,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((p) => `${p.name}=${p.value}`)
+    .join(';');
 
   return {
     Org_Name: repo.owner.login.toLowerCase(),
@@ -1096,8 +1110,7 @@ export function mapToRepoStatsResult(
     Full_URL: repo.url,
     Migration_Issue: hasMigrationIssues,
     Created: repo.createdAt,
-    Custom_Property_Owner: customPropertyOwner,
-    Custom_Property_SystemID: customPropertySystemId,
+    Custom_Properties: customPropertiesStr,
   };
 }
 
@@ -1530,6 +1543,7 @@ export async function checkForMissingRepos({
 
   logger.info('Checking for missing repositories');
   const missingRepos = [];
+  const skipRepoSet = buildSkipRepoSet(opts.skipRepoList, opts.orgName, logger);
 
   if (opts.repoList && opts.repoList.length > 0) {
     // Check missing repos from the provided repo list
@@ -1552,6 +1566,10 @@ export async function checkForMissingRepos({
     logger.info(`Found ${repoList.length} repos for ${org} in repo list`);
 
     for (const { repo: repoName } of repoList) {
+      if (skipRepoSet.has(repoName.toLowerCase())) {
+        continue;
+      }
+
       if (!processedReposSet.has(repoName.toLowerCase())) {
         missingRepos.push(repoName);
         const csvRow = `${repoName}\n`;
@@ -1562,7 +1580,10 @@ export async function checkForMissingRepos({
     // Check missing repos from all org repos
     logger.info('Checking against all organization repositories');
     for await (const repo of client.listReposForOrg(org, per_page)) {
-      if (processedReposSet.has(repo.name.toLowerCase())) {
+      if (
+        processedReposSet.has(repo.name.toLowerCase()) ||
+        skipRepoSet.has(repo.name.toLowerCase())
+      ) {
         continue;
       } else {
         missingRepos.push(repo.name);

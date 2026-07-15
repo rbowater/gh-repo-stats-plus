@@ -50,6 +50,7 @@ gh repo-stats-plus project-stats [options]
 - `--force-fresh-start`: Force a fresh start, ignoring any existing state
 - `--repo-list <file>`: Path to file containing list of repositories to process (format: owner/repo_name)
 - `--repo-names-file <file>`: Path to file containing repository names only, one per line (no owner prefix)
+- `--skip-repo-list <file>`: Path to file containing list of repositories to skip during processing (format: `owner/repo_name` or `repo_name`), one per line. Useful for excluding repositories the GitHub GraphQL API cannot process (e.g. due to an excessive number of records).
 - `--clean-state`: Remove state file after successful completion
 
 ### Multi-Organization Options

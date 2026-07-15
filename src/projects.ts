@@ -16,6 +16,7 @@ import {
   generateProjectStatsFileName,
   formatElapsedTime,
   applyBatchStaggerDelay,
+  buildSkipRepoSet,
 } from './utils.js';
 import {
   initializeCsvFile as initializeCsvFileGeneric,
@@ -299,10 +300,17 @@ async function processProjectStatsFromFile({
 
   let processedCount = 0;
 
+  const skipRepoSet = buildSkipRepoSet(opts.skipRepoList, opts.orgName, logger);
+
   for (const { owner, repo } of repoList) {
     try {
       if (processedState.processedRepos.includes(repo)) {
         logger.debug(`Skipping already processed repository: ${repo}`);
+        continue;
+      }
+
+      if (skipRepoSet.has(repo.toLowerCase())) {
+        logger.info(`Skipping repository per skip list: ${owner}/${repo}`);
         continue;
       }
 
@@ -406,11 +414,18 @@ async function processProjectStatsFromOrg({
 
   let processedCount = 0;
 
+  const skipRepoSet = buildSkipRepoSet(opts.skipRepoList, opts.orgName, logger);
+
   for await (const repo of reposIterator) {
     const repoName = repo.name;
 
     if (processedState.processedRepos.includes(repoName)) {
       logger.debug(`Skipping already processed repository: ${repoName}`);
+      continue;
+    }
+
+    if (skipRepoSet.has(repoName.toLowerCase())) {
+      logger.info(`Skipping repository per skip list: ${orgName}/${repoName}`);
       continue;
     }
 

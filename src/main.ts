@@ -986,6 +986,13 @@ export async function writeResultToCsv(
       formattedResult.Migration_Issue,
       formattedResult.Created,
       formattedResult.Custom_Properties,
+      formattedResult.Custom_Property_Owner,
+      formattedResult.Custom_Property_CostCode,
+      formattedResult.Custom_Property_SystemID,
+      formattedResult.Custom_Property_SystemName,
+      formattedResult.Custom_Property_SystemType,
+      formattedResult.Custom_Property_TechOrg,
+      formattedResult.Custom_Property_TechOrgGroup,
     ];
 
     appendCsvRow(fileName, values, logger);
@@ -1001,6 +1008,23 @@ export async function writeResultToCsv(
     );
     throw error;
   }
+}
+
+/**
+ * Extracts a single custom property's value (case-insensitive lookup on
+ * `propertyName`). Multi-select values are joined with semicolons;
+ * missing/unset properties resolve to an empty string.
+ */
+function extractCustomPropertyValue(
+  customPropertyValues: RepositoryStats['repositoryCustomPropertyValues'],
+  propertyName: string,
+): string {
+  const property = customPropertyValues?.nodes?.find(
+    (p) => p.propertyName.toLowerCase() === propertyName.toLowerCase(),
+  );
+  return Array.isArray(property?.value)
+    ? property.value.join(';')
+    : (property?.value ?? '');
 }
 
 export function mapToRepoStatsResult(
@@ -1052,6 +1076,38 @@ export function mapToRepoStatsResult(
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((p) => `${p.name}=${p.value}`)
     .join(';');
+
+  // Extract dedicated columns for well-known custom properties, in addition
+  // to the composite Custom_Properties field above.
+  const customPropertyValues = repo.repositoryCustomPropertyValues;
+  const customPropertyOwner = extractCustomPropertyValue(
+    customPropertyValues,
+    'owner',
+  );
+  const customPropertyCostCode = extractCustomPropertyValue(
+    customPropertyValues,
+    'costcode',
+  );
+  const customPropertySystemId = extractCustomPropertyValue(
+    customPropertyValues,
+    'systemid',
+  );
+  const customPropertySystemName = extractCustomPropertyValue(
+    customPropertyValues,
+    'systemname',
+  );
+  const customPropertySystemType = extractCustomPropertyValue(
+    customPropertyValues,
+    'systemtype',
+  );
+  const customPropertyTechOrg = extractCustomPropertyValue(
+    customPropertyValues,
+    'techorg',
+  );
+  const customPropertyTechOrgGroup = extractCustomPropertyValue(
+    customPropertyValues,
+    'techorggroup',
+  );
 
   return {
     Org_Name: repo.owner.login.toLowerCase(),
@@ -1111,6 +1167,13 @@ export function mapToRepoStatsResult(
     Migration_Issue: hasMigrationIssues,
     Created: repo.createdAt,
     Custom_Properties: customPropertiesStr,
+    Custom_Property_Owner: customPropertyOwner,
+    Custom_Property_CostCode: customPropertyCostCode,
+    Custom_Property_SystemID: customPropertySystemId,
+    Custom_Property_SystemName: customPropertySystemName,
+    Custom_Property_SystemType: customPropertySystemType,
+    Custom_Property_TechOrg: customPropertyTechOrg,
+    Custom_Property_TechOrgGroup: customPropertyTechOrgGroup,
   };
 }
 

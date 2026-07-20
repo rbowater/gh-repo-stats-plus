@@ -387,6 +387,7 @@ The CSV output includes detailed information about each repository:
   - 1.5 GB or larger size on disk
 - `Created`: Date/time when the repository was created
 - `Custom_Properties`: Semicolon-separated list of all set [custom properties](https://docs.github.com/en/organizations/managing-organization-settings/managing-custom-properties-for-repositories-in-your-organization) as `name=value` pairs (e.g., `owner=platform-team;systemid=SYS-1234`). Multi-select property values are joined with commas (e.g., `cost-center=1234,5678`). Properties with no value set are omitted.
+- `Custom_Property_Owner`, `Custom_Property_CostCode`, `Custom_Property_SystemID`, `Custom_Property_SystemName`, `Custom_Property_SystemType`, `Custom_Property_TechOrg`, `Custom_Property_TechOrgGroup`: Dedicated columns for the value of the corresponding custom property (`owner`, `costcode`, `systemid`, `systemname`, `systemtype`, `techorg`, `techorggroup`), matched case-insensitively. Multi-select values are joined with semicolons; unset properties are empty strings.
 
 ### LFS Detection Limitations
 

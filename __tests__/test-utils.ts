@@ -195,6 +195,13 @@ export function createMockRepoStatsResult(
     Migration_Issue: false,
     Created: '2024-01-01T00:00:00Z',
     Custom_Properties: '',
+    Custom_Property_Owner: '',
+    Custom_Property_CostCode: '',
+    Custom_Property_SystemID: '',
+    Custom_Property_SystemName: '',
+    Custom_Property_SystemType: '',
+    Custom_Property_TechOrg: '',
+    Custom_Property_TechOrgGroup: '',
     ...overrides,
   };
 }

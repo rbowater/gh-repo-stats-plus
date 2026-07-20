@@ -89,6 +89,13 @@ describe('initializeCsvFile', () => {
       'Migration_Issue',
       'Created',
       'Custom_Properties',
+      'Custom_Property_Owner',
+      'Custom_Property_CostCode',
+      'Custom_Property_SystemID',
+      'Custom_Property_SystemName',
+      'Custom_Property_SystemType',
+      'Custom_Property_TechOrg',
+      'Custom_Property_TechOrgGroup',
     ];
 
     for (const col of expectedColumns) {
@@ -96,7 +103,7 @@ describe('initializeCsvFile', () => {
     }
   });
 
-  it('should include all 56 columns in correct order', () => {
+  it('should include all 63 columns in correct order', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     const logger = createMockLogger();
 
@@ -106,7 +113,7 @@ describe('initializeCsvFile', () => {
     const headerLine = writtenContent.trim();
     const columns = headerLine.split(',');
 
-    expect(columns).toHaveLength(56);
+    expect(columns).toHaveLength(63);
 
     // Verify column order for new columns relative to neighbors
     const isTemplateIdx = columns.indexOf('isTemplate');
@@ -452,6 +459,66 @@ describe('mapToRepoStatsResult', () => {
     const result = mapToRepoStatsResult(repo, issueStats, prStats);
 
     expect(result.Custom_Properties).toBe('');
+  });
+
+  it('should extract dedicated custom property columns case-insensitively', () => {
+    const repo = createMockRepositoryStats({
+      repositoryCustomPropertyValues: {
+        nodes: [
+          { propertyName: 'Owner', value: 'platform-team' },
+          { propertyName: 'CostCode', value: 'CC-100' },
+          { propertyName: 'SystemID', value: 'SYS-1234' },
+          { propertyName: 'SystemName', value: 'Widget Service' },
+          { propertyName: 'SystemType', value: 'Application' },
+          { propertyName: 'TechOrg', value: 'Platform Engineering' },
+          { propertyName: 'TechOrgGroup', value: 'Core Infra' },
+        ],
+      },
+    });
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(repo, issueStats, prStats);
+
+    expect(result.Custom_Property_Owner).toBe('platform-team');
+    expect(result.Custom_Property_CostCode).toBe('CC-100');
+    expect(result.Custom_Property_SystemID).toBe('SYS-1234');
+    expect(result.Custom_Property_SystemName).toBe('Widget Service');
+    expect(result.Custom_Property_SystemType).toBe('Application');
+    expect(result.Custom_Property_TechOrg).toBe('Platform Engineering');
+    expect(result.Custom_Property_TechOrgGroup).toBe('Core Infra');
+  });
+
+  it('should join multi-select dedicated custom property values with semicolons', () => {
+    const repo = createMockRepositoryStats({
+      repositoryCustomPropertyValues: {
+        nodes: [{ propertyName: 'owner', value: ['team-a', 'team-b'] }],
+      },
+    });
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(repo, issueStats, prStats);
+
+    expect(result.Custom_Property_Owner).toBe('team-a;team-b');
+  });
+
+  it('should default dedicated custom property columns to empty when unset', () => {
+    const repo = createMockRepositoryStats({
+      repositoryCustomPropertyValues: { nodes: [] },
+    });
+    const issueStats = createMockIssueStats();
+    const prStats = createMockPrStats();
+
+    const result = mapToRepoStatsResult(repo, issueStats, prStats);
+
+    expect(result.Custom_Property_Owner).toBe('');
+    expect(result.Custom_Property_CostCode).toBe('');
+    expect(result.Custom_Property_SystemID).toBe('');
+    expect(result.Custom_Property_SystemName).toBe('');
+    expect(result.Custom_Property_SystemType).toBe('');
+    expect(result.Custom_Property_TechOrg).toBe('');
+    expect(result.Custom_Property_TechOrgGroup).toBe('');
   });
 
   it('should handle null defaultBranchRef', () => {

@@ -368,6 +368,13 @@ export interface RepoStatsResult {
   Migration_Issue: boolean;
   Created: string;
   Custom_Properties: string;
+  Custom_Property_Owner: string;
+  Custom_Property_CostCode: string;
+  Custom_Property_SystemID: string;
+  Custom_Property_SystemName: string;
+  Custom_Property_SystemType: string;
+  Custom_Property_TechOrg: string;
+  Custom_Property_TechOrgGroup: string;
 }
 
 export interface CollaboratorsResponse {

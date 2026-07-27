@@ -68,6 +68,10 @@ export const REPO_STATS_COLUMNS = [
   'Custom_Property_SystemType',
   'Custom_Property_TechOrg',
   'Custom_Property_TechOrgGroup',
+  'Custom_Property_MigrationReady',
+  'Custom_Property_MigrationReadyDate',
+  'Custom_Property_ReviewComplete',
+  'Custom_Property_TargetOrg',
 ];
 
 export const PROJECT_STATS_COLUMNS = [

@@ -96,6 +96,10 @@ describe('initializeCsvFile', () => {
       'Custom_Property_SystemType',
       'Custom_Property_TechOrg',
       'Custom_Property_TechOrgGroup',
+      'Custom_Property_MigrationReady',
+      'Custom_Property_MigrationReadyDate',
+      'Custom_Property_ReviewComplete',
+      'Custom_Property_TargetOrg',
     ];
 
     for (const col of expectedColumns) {
@@ -103,7 +107,7 @@ describe('initializeCsvFile', () => {
     }
   });
 
-  it('should include all 63 columns in correct order', () => {
+  it('should include all 67 columns in correct order', () => {
     vi.mocked(existsSync).mockReturnValue(false);
     const logger = createMockLogger();
 
@@ -113,7 +117,7 @@ describe('initializeCsvFile', () => {
     const headerLine = writtenContent.trim();
     const columns = headerLine.split(',');
 
-    expect(columns).toHaveLength(63);
+    expect(columns).toHaveLength(67);
 
     // Verify column order for new columns relative to neighbors
     const isTemplateIdx = columns.indexOf('isTemplate');
@@ -472,6 +476,10 @@ describe('mapToRepoStatsResult', () => {
           { propertyName: 'SystemType', value: 'Application' },
           { propertyName: 'TechOrg', value: 'Platform Engineering' },
           { propertyName: 'TechOrgGroup', value: 'Core Infra' },
+          { propertyName: 'MigrationReady', value: 'TRUE' },
+          { propertyName: 'MigrationReadyDate', value: '2026-01-31' },
+          { propertyName: 'ReviewComplete', value: 'FALSE' },
+          { propertyName: 'TargetOrg', value: 'acme-migration' },
         ],
       },
     });
@@ -487,6 +495,10 @@ describe('mapToRepoStatsResult', () => {
     expect(result.Custom_Property_SystemType).toBe('Application');
     expect(result.Custom_Property_TechOrg).toBe('Platform Engineering');
     expect(result.Custom_Property_TechOrgGroup).toBe('Core Infra');
+    expect(result.Custom_Property_MigrationReady).toBe('TRUE');
+    expect(result.Custom_Property_MigrationReadyDate).toBe('2026-01-31');
+    expect(result.Custom_Property_ReviewComplete).toBe('FALSE');
+    expect(result.Custom_Property_TargetOrg).toBe('acme-migration');
   });
 
   it('should join multi-select dedicated custom property values with semicolons', () => {
@@ -519,6 +531,10 @@ describe('mapToRepoStatsResult', () => {
     expect(result.Custom_Property_SystemType).toBe('');
     expect(result.Custom_Property_TechOrg).toBe('');
     expect(result.Custom_Property_TechOrgGroup).toBe('');
+    expect(result.Custom_Property_MigrationReady).toBe('');
+    expect(result.Custom_Property_MigrationReadyDate).toBe('');
+    expect(result.Custom_Property_ReviewComplete).toBe('');
+    expect(result.Custom_Property_TargetOrg).toBe('');
   });
 
   it('should handle null defaultBranchRef', () => {

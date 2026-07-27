@@ -993,6 +993,10 @@ export async function writeResultToCsv(
       formattedResult.Custom_Property_SystemType,
       formattedResult.Custom_Property_TechOrg,
       formattedResult.Custom_Property_TechOrgGroup,
+      formattedResult.Custom_Property_MigrationReady,
+      formattedResult.Custom_Property_MigrationReadyDate,
+      formattedResult.Custom_Property_ReviewComplete,
+      formattedResult.Custom_Property_TargetOrg,
     ];
 
     appendCsvRow(fileName, values, logger);
@@ -1108,6 +1112,22 @@ export function mapToRepoStatsResult(
     customPropertyValues,
     'techorggroup',
   );
+  const customPropertyMigrationReady = extractCustomPropertyValue(
+    customPropertyValues,
+    'migrationready',
+  );
+  const customPropertyMigrationReadyDate = extractCustomPropertyValue(
+    customPropertyValues,
+    'migrationreadydate',
+  );
+  const customPropertyReviewComplete = extractCustomPropertyValue(
+    customPropertyValues,
+    'reviewcomplete',
+  );
+  const customPropertyTargetOrg = extractCustomPropertyValue(
+    customPropertyValues,
+    'targetorg',
+  );
 
   return {
     Org_Name: repo.owner.login.toLowerCase(),
@@ -1174,6 +1194,10 @@ export function mapToRepoStatsResult(
     Custom_Property_SystemType: customPropertySystemType,
     Custom_Property_TechOrg: customPropertyTechOrg,
     Custom_Property_TechOrgGroup: customPropertyTechOrgGroup,
+    Custom_Property_MigrationReady: customPropertyMigrationReady,
+    Custom_Property_MigrationReadyDate: customPropertyMigrationReadyDate,
+    Custom_Property_ReviewComplete: customPropertyReviewComplete,
+    Custom_Property_TargetOrg: customPropertyTargetOrg,
   };
 }
 

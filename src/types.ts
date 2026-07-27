@@ -375,6 +375,10 @@ export interface RepoStatsResult {
   Custom_Property_SystemType: string;
   Custom_Property_TechOrg: string;
   Custom_Property_TechOrgGroup: string;
+  Custom_Property_MigrationReady: string;
+  Custom_Property_MigrationReadyDate: string;
+  Custom_Property_ReviewComplete: string;
+  Custom_Property_TargetOrg: string;
 }
 
 export interface CollaboratorsResponse {
